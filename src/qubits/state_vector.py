@@ -10,11 +10,12 @@ class StateVector:
         state = np.array(state)
         normalization = np.sum(state ** 2)
         if normalization != 1:
+            # State should always be normalized!
             state /= np.sqrt(normalization)
         self.state = np.array(state)
         
     def bra(self):
-        """Returns a bra (i.e. a row vector, conjugate transpose) representation of the qubit.
+        """Returns a bra (i.e. a row vector, conjugate) representation of the qubit.
         """
         return self.state.conj()
     
