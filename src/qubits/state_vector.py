@@ -2,7 +2,7 @@ import numpy as np
 
 class StateVector:
     
-    state: np.array
+    _state: np.array
     
     def __init__(self, state: list[2]) -> None:
         if len(state) != 2:
@@ -12,12 +12,12 @@ class StateVector:
         if normalization != 1:
             # State should always be normalized!
             state /= np.sqrt(normalization)
-        self.state = np.array(state)
+        self._state = np.array(state)
         
     def bra(self):
-        """Returns a bra (i.e. a row vector, conjugate) representation of the qubit.
+        """Returns a bra (i.e. a row vector, conjugate transpose) representation of the qubit.
         """
-        return self.state.conj()
+        return self._state.conj()
     
     def ket(self):
         """Returns a ket (i.e. a column vector) representation of the qubit.
@@ -25,12 +25,12 @@ class StateVector:
         Returns:
             np.array: Ket representation of the qubit.
         """
-        return self.state[..., None]
+        return self._state[..., None]
         
     def measure(self, return_stats: bool = False):
         """
         Measures the qubit in the computational basis.
-        Returns a random collapsed state according to the measurement statistics.
+        Returns a random collapsed _state according to the measurement statistics.
         """
         states, probs = self._get_measurement_stats()
         collapsed_state_ind = np.random.choice(len(states), p=probs)
