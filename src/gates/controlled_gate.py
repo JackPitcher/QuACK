@@ -14,10 +14,9 @@ class ControlledGate(Gate):
         super().__init__(targets)
         self.controls = controls
         
-    def expand_gate(self, register: Register):
+    def expand_gate(self, N: int = 2, register: Register = None):
         """Expands the gate to work with N qubits.
         Only works for 1 control qubit for now."""
-        N = len(register)
         num_targets = len(self.targets)
         U = self.single_gate.expand_gate(num_targets)
         I = np.eye(2)

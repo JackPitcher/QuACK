@@ -1,3 +1,5 @@
+from ..qubits.register import Register
+
 class Gate:
     """Abstract Gate class, representing a generic quantum gate."""
     
@@ -6,10 +8,10 @@ class Gate:
     def __init__(self, targets) -> None:
         self.targets = targets
     
-    def matrix_rep(self):
+    def matrix_rep(self, register: Register, N: int):
         raise NotImplementedError
     
-    def expand_gate(self, N: int):
+    def expand_gate(self, register: Register, N: int):
         raise NotImplementedError
     
     
