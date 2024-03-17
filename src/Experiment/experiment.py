@@ -91,7 +91,7 @@ class Experiment:
 
         return energy
 
-    def run(self, guess: list, verbose=False) -> list:
+    def run(self, guess: np.array, verbose=False) -> list:
         theta = guess
         for i in range(self.params["solver_iterations"]):
             theta = self.optimizer(self._step, theta)

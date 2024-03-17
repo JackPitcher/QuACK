@@ -1,12 +1,12 @@
 import numpy as np
-from Experiment.experiment import Experiment
-from Optimizer.optimizer import scalar_minimizer
-from Hamiltonian.hamiltonian_qiskit import SimpleQiskitHamiltonian
-from QuantumCircuitBuilder.QCBQiskit import SimpleQiskitCircuit
-from Hamiltonian.hamiltonian_qutip import SimpleQutipHamiltonian
-from QuantumCircuitBuilder.QCBQutip import SimpleQutipCircuit
+from src.Experiment.experiment import Experiment
+from src.Optimizer.optimizer import scalar_minimizer, gradient_descent
+from src.Hamiltonian.hamiltonian_qiskit import SimpleQiskitHamiltonian
+from src.QuantumCircuitBuilder.qcb_qiskit import SimpleQiskitCircuit
+from src.Hamiltonian.hamiltonian_qutip import SimpleQutipHamiltonian
+from src.QuantumCircuitBuilder.qcb_qutip import SimpleQutipCircuit
 
-module = 'qutip'
+module = 'qiskit'
 
 if module == 'qutip':
     hamiltonian = SimpleQutipHamiltonian()
@@ -22,9 +22,10 @@ elif module == 'qiskit':
     hamiltonian = SimpleQiskitHamiltonian()
     qcb = SimpleQiskitCircuit()
     #optimizer = lambda x, y: scalar_minimizer(x, y, step_size=0.005)
-    optimizer = lambda x, y: scalar_minimizer(x, y, step_size=0.01, bs=(0, np.pi))
+    #optimizer = lambda x, y: scalar_minimizer(x, y, step_size=0.01, bs=(0, np.pi))
+    optimizer = lambda x, y: gradient_descent(x, y)
     experiment = Experiment(hamiltonian, qcb, optimizer, 'qiskit')
     experiment.set_param("shots", 1024)
-    experiment.set_param("solver_iterations", 1024)
+    experiment.set_param("solver_iterations", 2048)
     
-    experiment.run([0.2], verbose=True)
+    experiment.run([3.1], verbose=True)
