@@ -1,6 +1,6 @@
 import qiskit as qk
 
-from src.QuantumCircuitBuilder.qcb import QuantumCircuitBuilder
+from quantumcircuitbuilder.qcb import QuantumCircuitBuilder
 
 
 class QiskitQuantumCircuitBuilder(QuantumCircuitBuilder):

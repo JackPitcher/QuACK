@@ -2,7 +2,7 @@ import numpy as np
 from qutip.qip.circuit import QubitCircuit, Gate
 from qutip import Qobj
 
-from src.Hamiltonian.hamiltonian import Hamiltonian
+from hamiltonian.hamiltonian import Hamiltonian
 
 
 class QutipHamiltonian(Hamiltonian):

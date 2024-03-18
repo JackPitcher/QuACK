@@ -1,6 +1,6 @@
 from qutip.qip.circuit import QubitCircuit, Gate
 
-from src.QuantumCircuitBuilder.qcb import QuantumCircuitBuilder
+from quantumcircuitbuilder.qcb import QuantumCircuitBuilder
 
 
 class QutipQuantumCircuitBuilder(QuantumCircuitBuilder):

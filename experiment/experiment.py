@@ -5,8 +5,8 @@ from qutip import tensor, basis
 import qiskit as qk
 from qiskit_aer import Aer
 
-from src.QuantumCircuitBuilder.qcb import QuantumCircuitBuilder
-from src.Hamiltonian.hamiltonian import Hamiltonian
+from quantumcircuitbuilder.qcb import QuantumCircuitBuilder
+from hamiltonian.hamiltonian import Hamiltonian
 
 class Experiment:
     """

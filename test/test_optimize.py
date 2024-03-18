@@ -5,7 +5,7 @@ src_dir = os.path.join(test_directory, '..', 'src')
 sys.path.append(src_dir)         
 from hypothesis import given
 from hypothesis.strategies import floats, tuples
-import Optimizer.optimizer as src
+import optimizer.optimizer as src
 TOL = 3e-2
 
 #############################

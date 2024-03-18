@@ -1,6 +1,6 @@
 import qiskit as qk
 
-from src.Hamiltonian.hamiltonian import Hamiltonian
+from hamiltonian.hamiltonian import Hamiltonian
 
 
 class QiskitHamiltonian(Hamiltonian):

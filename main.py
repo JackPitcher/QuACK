@@ -1,10 +1,10 @@
 import numpy as np
-from src.Experiment.experiment import Experiment
-from src.Optimizer.optimizer import scalar_minimizer, gradient_descent
-from src.Hamiltonian.hamiltonian_qiskit import SimpleQiskitHamiltonian
-from src.QuantumCircuitBuilder.qcb_qiskit import SimpleQiskitCircuit
-from src.Hamiltonian.hamiltonian_qutip import SimpleQutipHamiltonian
-from src.QuantumCircuitBuilder.qcb_qutip import SimpleQutipCircuit
+from experiment.experiment import Experiment
+from optimizer.optimizer import scalar_minimizer, gradient_descent
+from hamiltonian.hamiltonian_qiskit import SimpleQiskitHamiltonian
+from quantumcircuitbuilder.qcb_qiskit import SimpleQiskitCircuit
+from hamiltonian.hamiltonian_qutip import SimpleQutipHamiltonian
+from quantumcircuitbuilder.qcb_qutip import SimpleQutipCircuit
 
 module = 'qiskit'
 
