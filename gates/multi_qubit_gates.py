@@ -1,14 +1,14 @@
 import numpy as np
 
 from gates import Gate
-from qubits import StateVector, DensityMatrix, Qubit
+from qubits import StateVector, DensityMatrix, Qubit, Register
 
 class MultiQubitGate(Gate):
     
     _matrix_representation = None
     
-    def __init__(self, register, targets) -> None:
-        super().__init__(register, targets)
+    def __init__(self, register: Register, targets: list[int], theta: float = 0) -> None:
+        super().__init__(register, targets, theta)
         
     def get_state(self) -> Qubit:
         """Gets the state to act on. Since there are multiple qubits to act on,
@@ -50,5 +50,5 @@ class SWAP(MultiQubitGate):
     
     _matrix_representation = np.array([[1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]])
     
-    def __init__(self, register, targets) -> None:
-        super().__init__(register, targets)
+    def __init__(self, register, targets, theta = 0) -> None:
+        super().__init__(register, targets, theta)

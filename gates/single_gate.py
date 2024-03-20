@@ -8,8 +8,8 @@ class SingleGate(Gate):
     
     _matrix_representation = None
     
-    def __init__(self, register: Register, targets: list[int]) -> None:
-        super().__init__(register, targets)
+    def __init__(self, register: Register, targets: list[int], theta: float = 0.0) -> None:
+        super().__init__(register, targets, theta)
         
     def get_state(self):
         """Simply returns the state that the gate should act on, which is target qubit."""
@@ -39,5 +39,25 @@ class H(SingleGate):
     
     _matrix_representation = 1 / np.sqrt(2) * np.array([[1, 1], [1, -1]])
     
+class RX(SingleGate):
+    
+    def __init__(self, register: Register, targets: list[int], theta: float) -> None:
+        super().__init__(register, targets, theta)
+        self._matrix_representation = np.array([[np.cos(self.theta / 2), -1j * np.sin(self.theta / 2)],
+                                                [-1j * np.sin(self.theta / 2), np.cos(self.theta / 2)]])
+
+class RY(SingleGate):
+    
+    def __init__(self, register: Register, targets: list[int], theta: float) -> None:
+        super().__init__(register, targets, theta)
+        self._matrix_representation = np.array([[np.cos(self.theta / 2), -np.sin(self.theta / 2)],
+                                                [np.sin(self.theta / 2), np.cos(self.theta / 2)]])
+        
+class RZ(SingleGate):
+    
+    def __init__(self, register: Register, targets: list[int], theta: float) -> None:
+        super().__init__(register, targets, theta)
+        self._matrix_representation = np.array([[np.exp(-1j * self.theta / 2), 0],
+                                                0, np.exp(1j * self.theta / 2)])
     
                 
