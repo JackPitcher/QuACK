@@ -6,8 +6,9 @@ class Gate:
     
     targets: list[int] = []
     register: Register = None
+    theta: float = 0.0
     
-    def __init__(self, register: Register, targets: list[int]) -> None:
+    def __init__(self, register: Register, targets: list[int], theta: float = 0) -> None:
         """Initializes the gate with a register that the gate acts on and a list of targets in the register.
 
         Args:
@@ -16,6 +17,7 @@ class Gate:
         """
         self.register = register
         self.targets = targets
+        self.theta = theta
         
     def evolve(self) -> Register:
         """Evolves the register by making the gate act on the qubit.

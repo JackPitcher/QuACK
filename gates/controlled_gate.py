@@ -14,8 +14,9 @@ class ControlledGate(Gate):
     x_names: list[str] = ['x', 'not', 'pauli_x', 'sigma_x']
     swap_names: list[str] = ['swap']
     
-    def __init__(self, register: Register, targets: list[int], controls: list[int], gate_name: str = '') -> None:
-        super().__init__(register, targets)
+    def __init__(self, register: Register, targets: list[int], 
+                 controls: list[int], theta: float = 0,  gate_name: str = '') -> None:
+        super().__init__(register, targets, theta)
         self.controls = controls
         if gate_name:
             self.gate = self.get_gate(gate_name)
@@ -84,19 +85,18 @@ class ControlledGate(Gate):
 
 class CNOT(ControlledGate):
     
-    def __init__(self, register: Register, targets: list[int], controls: list[int]) -> None:
-        super().__init__(register, targets, controls)
+    def __init__(self, register: Register, targets: list[int], controls: list[int], theta: float = 0) -> None:
+        super().__init__(register, targets, controls, theta)
         self.gate = X(self.register, self.targets)
 
 class CZ(ControlledGate):
-    def __init__(self, register: Register, targets: list[int], controls: list[int]) -> None:
-        super().__init__(register, targets, controls)
+    def __init__(self, register: Register, targets: list[int], controls: list[int], theta: float = 0) -> None:
+        super().__init__(register, targets, controls, theta)
         self.gate = Z(self.register, self.targets)
     
-        
 class CSWAP(ControlledGate):
     
-    def __init__(self, register: Register, targets: list[int], controls: list[int], gate_name: str = '') -> None:
-        super().__init__(register, targets, controls, gate_name)
+    def __init__(self, register: Register, targets: list[int], controls: list[int], theta: float = 0) -> None:
+        super().__init__(register, targets, controls, theta)
         self.gate = SWAP(self.register, self.targets)
         

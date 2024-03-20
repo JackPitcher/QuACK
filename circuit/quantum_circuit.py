@@ -1,6 +1,7 @@
 from qubits import Register
 from gates import CNOT, X, Y, Z, H, Gate, SWAP, CSWAP, CZ
-
+from operations import MeasurementOp, GateOp
+from typing import Union
 
 class QuantumCircuit:
     
@@ -8,13 +9,10 @@ class QuantumCircuit:
     operations: dict = {}
     classical_storage: list[int]
     
-    def __init__(self, reg: Register, operations: dict, num_classical_stores: int) -> None:
+    def __init__(self, reg: Register, operations: dict, num_classical_stores: int, 
+                 ops: list[Union[MeasurementOp, GateOp]] = []) -> None:
         """Initlalizes the quantum circuit, with a register of qubits to act on, and a dictionary of operations (e.g. measurements or gates).
-        TODO: Currently I am using a dictionary as operations. Ideally this should be done
-        as a list of classes of operations. E.g. Measurement is an operation that is intialized
-        with target and classical store; Gate is an operation that is initialized with targets and controls.
-        This will make it cleaner to initialize by hand.
-        Also we should make a way to draw the circuit out, similar to how other QI libraries allow you
+        TODO: We should make a way to draw the circuit out, similar to how other QI libraries allow you
         to draw the circuit. That will make it easier to debug.
 
         Args:
@@ -37,6 +35,7 @@ class QuantumCircuit:
         self.reg = reg
         self.operations = operations
         self.classical_storage = [0 for _ in range(num_classical_stores)]
+        self.ops = ops
     
     def run(self):
         for op in self.operations.keys():
@@ -51,6 +50,17 @@ class QuantumCircuit:
                 targets = target_dict["targets"]
                 controls = target_dict["controls"]
                 gate = self._create_gate(gate_name=op, targets=targets, controls=controls)
+                self.reg = gate.evolve()
+                
+    def run_with_ops(self):
+        for op in self.ops:
+            if isinstance(op, MeasurementOp):
+                target = op.target
+                classical_store = op.classical_store
+                result = self.reg.measure(target)
+                self.classical_storage[classical_store] = result
+            else:
+                gate = op.gate
                 self.reg = gate.evolve()
                 
     def _create_gate(self, gate_name: str, targets: list[int], controls: list[int]) -> Gate:
