@@ -1,31 +1,29 @@
 import numpy as np
-from experiment.experiment import Experiment
-from optimizer.optimizer import scalar_minimizer, gradient_descent
-from hamiltonian.hamiltonian_qiskit import SimpleQiskitHamiltonian
-from quantumcircuitbuilder.qcb_qiskit import SimpleQiskitCircuit
-from hamiltonian.hamiltonian_qutip import SimpleQutipHamiltonian
-from quantumcircuitbuilder.qcb_qutip import SimpleQutipCircuit
+from experiment.experiment import QiskitExperiment, QutipExperiment
+from optimizer.optimizer import GradientDescent
+from hamiltonian.hamiltonian_other import SimpleQiskitHamiltonian, SimpleQutipHamiltonian
+from quantumcircuitbuilder.qcb_other import SimpleQiskitCircuit, SimpleQutipCircuit
 
-module = 'qiskit'
+module = 'qutip'
 
 if module == 'qutip':
     hamiltonian = SimpleQutipHamiltonian()
     qcb = SimpleQutipCircuit()
-    optimizer = lambda x, y: scalar_minimizer(x, y, step_size=0.01, bs=(0, np.pi))
-    experiment = Experiment(hamiltonian, qcb, optimizer, 'qutip')
+    schedule = [[16, 64, 128], [0.1, 0.05, 0.01]]
+    step_size = np.pi/1e2
+    optimizer = GradientDescent(schedule=schedule, step_size=step_size)
+    experiment = QutipExperiment(hamiltonian, qcb, optimizer)
     experiment.set_param("shots", 16)
-    experiment.set_param("solver_iterations", 64)
-    
-    experiment.run([3.0], verbose=True)
+    experiment.run([3.1], verbose=True)
 
 elif module == 'qiskit':
     hamiltonian = SimpleQiskitHamiltonian()
     qcb = SimpleQiskitCircuit()
-    #optimizer = lambda x, y: scalar_minimizer(x, y, step_size=0.005)
-    #optimizer = lambda x, y: scalar_minimizer(x, y, step_size=0.01, bs=(0, np.pi))
-    optimizer = lambda x, y: gradient_descent(x, y)
-    experiment = Experiment(hamiltonian, qcb, optimizer, 'qiskit')
+    schedule = [[512, 1024, 2048], [0.1, 0.05, 0.01]]
+    step_size = np.pi/1e2
+    optimizer = GradientDescent(schedule=schedule, step_size=step_size)
+    
+    experiment = QiskitExperiment(hamiltonian, qcb, optimizer)
     experiment.set_param("shots", 1024)
-    experiment.set_param("solver_iterations", 2048)
     
     experiment.run([3.1], verbose=True)

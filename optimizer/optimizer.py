@@ -1,66 +1,110 @@
 import numpy as np
+from typing import Optional
 
 
-def scalar_minimizer(func: callable, theta: list, step_size: float=0.01, bs: tuple|None=None):
+class Optimizer:
     """
-    Very basic minimizer step for a function func that only takes in one parameter.
-    Allows for the use of bounds
-
-    === Parameters ===
-    func: the function to minimize.
-    theta: the parameter to minimize over.
-    step_size: the size of the step to take at each iteration.
-    bs: optional bounds to keep theta within.
-
-    === Prerequisites ===
-    len(theta) == 1
-    bs[0] < bs[1]
-    """
-
-    E = func(theta)
-
-    n_theta = [theta[0] - step_size, theta[0] + step_size]
-    if bs is not None:
-        if bs[0] >= bs[1]:
-            raise ValueError("Please provide bounds with bs[0] < bs[1]")
-        n_theta = np.clip(n_theta, bs[0], bs[1])
-    n_E = [func([n_theta[0]]), func([n_theta[1]])]
-    diffs = [n_E[0] - E, n_E[1] - E]
-
-    index = np.argmin(diffs)
+    Abstract class for defining an optimization routine.
     
-    if E < n_E[index]:
-        return theta
+    === Attributes ===
+    func: the function to be optimized.
+    theta: the current parameter value.
+    """
+    func: Optional[callable]
+    theta: Optional[np.array]
+
+    def __init__(self, func: Optional[callable]=None, guess: Optional[np.array]=None):
+        self.func = func
+        self.theta = guess
+
+    def set_func(self, func: callable) -> None:
+        self.func = func
+
+    def set_theta(self, theta: np.array) -> None:
+        self.theta = theta
+
+    def step(self):
+        raise NotImplementedError
     
-    return [n_theta[index]]
+    def run(self, verbose: bool=False):
+        raise NotImplementedError
 
 
-def diff(dH: np.array, func: callable, theta: np.array, step_size) -> np.array:
+class GradientDescent(Optimizer):
     """
-    Computes the derivative of a Hamiltonian.
-    === Parameters ===
-    dH: the numpy array to store the results in
-    func: the Hamiltonian being differentiated.
-    theta: the parameters we are differentiating on.
-    step_size: size of the finite difference step
-    """
-    for i in range(len(theta)):
-        theta[i] += step_size
-        a = func(theta)
-        theta[i] -= 2*step_size
-        dH[i] = a - func(theta)
-        theta[i] += step_size
-    return dH
+    Class for a gradient descent routine.
+    
+    === Attributes ===
+    schedule: the learning rate schedule for this routine.
+        - example: [[10, 20], [1, 0.1]]
+            - First list is end range of the solver iterations for that step
+            - Second list is the learning rate in that range
+    step_size: the step size to take when finding the derivative.
+    d: the current derivative value for each parameter.
 
-def gradient_descent(func: callable, theta: np.array, step_size: float=np.pi/2.0, lr: float=0.001):
+    === Representation Invariants ===
+    theta.size == d.size
     """
-    Computes a gradient descent step on func.
-    === Parameters ===
-    func: the function to take the derivative of.
-    theta: the parameters to take the derivative from.
-    step_size: size of the finite difference step.
-    lr: the learning rate.
-    """
-    dH = np.empty_like(theta)
-    diff(dH, func, theta, step_size)
-    return theta - lr * dH
+    schedule: dict
+    step_size: float
+    d: Optional[np.array]
+
+    def __init__(self, schedule: list, step_size: float, 
+                 func: Optional[callable]=None, guess: Optional[np.array]=None):
+        super().__init__(func, guess)
+        self.schedule = schedule
+        self.step_size = step_size
+        if guess is None:
+            self.d = None
+        else:
+            self.d = np.empty_like(guess)
+    
+    def set_theta(self, theta: np.array):
+        self.theta = theta
+        if self.d is None:
+            self.d = np.empty_like(theta)
+
+    def diff(self) -> np.array:
+        """
+        Computes the derivative of self.func, stored in self.d.
+        """
+        for i in range(len(self.theta)):
+            self.theta[i] += self.step_size
+            a = self.func(self.theta)
+            self.theta[i] -= 2*self.step_size
+            self.d[i] = a - self.func(self.theta)
+            self.theta[i] += self.step_size
+
+    def step(self, lr: float):
+        """
+        Computes a gradient descent step on func.
+        === Parameters ===
+        lr: the learning rate.
+        """
+        self.diff()
+        self.theta -= lr * self.d
+    
+    def run(self, verbose: bool=False) -> np.array:
+        """
+        Runs gradient descent on func, with initial guess guess.
+        === Parameters ===
+        verbose: boolean value determining whether to show run details.
+        """
+        if self.func is None:
+            raise AttributeError("Please provide a function to optimize!")
+        if self.theta is None:
+            raise AttributeError("Please provide an initial guess!")
+
+        for i in range(len(self.schedule[0])):
+            a = 0 if i == 0 else self.schedule[0][i-1]
+            for _ in range(a, self.schedule[0][i]):
+                self.step(self.schedule[1][i])
+            if verbose:
+                print(f"Iteration {self.schedule[0][i]}, theta={self.theta}")
+        
+        if verbose:
+            print(f"Final values: theta={self.theta}, f(theta)={self.func(self.theta)}")
+        
+        return self.theta.copy()
+
+

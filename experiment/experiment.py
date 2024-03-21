@@ -1,12 +1,15 @@
 from typing import Any
 import numpy as np
+# Import QuTiP
 from qutip.qip.circuit import QubitCircuit, Gate, CircuitSimulator
 from qutip import tensor, basis
+# Import Qiskit
 import qiskit as qk
 from qiskit_aer import Aer
-
+# Import QuACK
 from quantumcircuitbuilder.qcb import QuantumCircuitBuilder
 from hamiltonian.hamiltonian import Hamiltonian
+from optimizer.optimizer import Optimizer
 
 class Experiment:
     """
@@ -31,7 +34,7 @@ class Experiment:
 
     def __init__(self, hamiltonian: callable,
                        qcb: QuantumCircuitBuilder,
-                       optimizer: callable,
+                       optimizer: Optimizer,
                        module: str) -> None:
         if module != hamiltonian.module \
             or module != qcb.module:
@@ -39,36 +42,18 @@ class Experiment:
 
         self.hamiltonian = hamiltonian
         self.qcb = qcb
+        optimizer.set_func(self._step)
         self.optimizer = optimizer
         self.module = module
         self.params = {
-            "shots": 64,
-            "solver_iterations": 64
+            "shots": 64
         }
 
     def set_param(self, param: str, val: Any) -> None:
         self.params[param] = val
 
     def _get_counts(self, qc) -> dict:
-        counts = {0: 0, 1: 0}
-        if self.module == "qutip":
-            zero_state = tensor(basis(2, 0), basis(2, 0))
-            sim = CircuitSimulator(qc)
-            for i in range(self.params["shots"]):
-                result = sim.run(state=zero_state)
-                counts[result.get_cbits(0)[0]] += 1
-            return counts
-        elif self.module == "qiskit":
-            sim_bknd = Aer.get_backend('qasm_simulator')
-            temp = sim_bknd.run(qc, shots=self.params["shots"]).result().get_counts()
-            if '0' in temp:
-                counts[0] = temp['0']
-            if '1' in temp:
-                counts[1] = temp['1']
-        else:
-            raise NotImplementedError(f"Module {self.module} not implemented")
-        
-        return counts
+        raise NotImplementedError
 
     def _step(self, theta: list, verbose=False) -> float:
         vqe_res = {}
@@ -85,18 +70,45 @@ class Experiment:
     
         energy = self.hamiltonian.get_energy(vqe_res)
 
-        if verbose: 
-            print("Mean values from measurement results:\n", vqe_res)
-            print(f"{theta[0]:<10f} {energy:<10f} {vqe_res['XX']:<10f} {vqe_res['YY']:<10f} {vqe_res['ZZ']:<10f}")
-
         return energy
 
     def run(self, guess: np.array, verbose=False) -> list:
-        theta = guess
-        for i in range(self.params["solver_iterations"]):
-            theta = self.optimizer(self._step, theta)
-            if verbose:
-                print(f"Iteration {i}, theta={theta}")
-        if verbose:
-            print(theta, self._step(theta))
-        return theta
+        self.optimizer.set_theta(guess)
+        result = self.optimizer.run(verbose=verbose)
+        
+        return result
+
+
+class QiskitExperiment(Experiment):
+    def __init__(self, hamiltonian: Hamiltonian,
+                       qcb: QuantumCircuitBuilder,
+                       optimizer: callable) -> None:
+        super().__init__(hamiltonian, qcb, optimizer, "qiskit")
+    
+    def _get_counts(self, qc) -> dict:
+        counts = {0: 0, 1: 0}
+        sim_bknd = Aer.get_backend('qasm_simulator')
+        temp = sim_bknd.run(qc, shots=self.params["shots"]).result().get_counts()
+        if '0' in temp:
+            counts[0] = temp['0']
+        if '1' in temp:
+            counts[1] = temp['1']
+        
+        return counts
+
+
+class QutipExperiment(Experiment):
+    def __init__(self, hamiltonian: Hamiltonian,
+                       qcb: QuantumCircuitBuilder,
+                       optimizer: callable) -> None:
+        super().__init__(hamiltonian, qcb, optimizer, "qutip")
+    
+    def _get_counts(self, qc) -> dict:
+        counts = {0: 0, 1: 0}
+        zero_state = tensor(basis(2, 0), basis(2, 0))
+        sim = CircuitSimulator(qc)
+        for i in range(self.params["shots"]):
+            result = sim.run(state=zero_state)
+            counts[result.get_cbits(0)[0]] += 1
+        
+        return counts
