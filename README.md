@@ -12,6 +12,7 @@ VQE aims to address these by taking an iterative approach. Instead of attempting
 
 ## References
 [1] Cheng-Lin Hong, Luis Colmenarez, Lexin Ding, Carlos L. Benavides-Riveros, and Christian Schilling. Quantum parallelized variational quantum eigensolvers for excited states, 2023. https://arxiv.org/abs/2306.11844
+
 [2] J.R. Johansson, P.D. Nation, and Franco Nori. Qutip: An open-source python framework for the dynamics of open quantum systems. *Computer Physics Communications*, 183(8):1760–1772, August 2012. https://www.sciencedirect.com/science/article/abs/pii/S0010465512000835
 
 [3] Stefano Mangini. Vqe from scratch. https://github.com/stfnmangini/VQE_from_scratch, 2021.
