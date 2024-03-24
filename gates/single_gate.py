@@ -1,6 +1,6 @@
 import numpy as np
 
-from gate import Gate
+from gates.gate import Gate
 from qubits import Register, StateVector, DensityMatrix
 
 class SingleGate(Gate):

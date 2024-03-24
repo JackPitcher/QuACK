@@ -27,10 +27,18 @@ class SimpleQiskitHamiltonian(QiskitHamiltonian):
     def __init__(self):
         super().__init__(["XX", "YY", "ZZ"])
 
-    def get_measurer(self, qc: qk.QuantumCircuit,
-                           qr: qk.QuantumRegister,
-                           cr: qk.ClassicalRegister,
-                           op: str) -> dict:
+    def construct_ansatz(self, theta: list|float, op: str|None=None) -> qk.QuantumCircuit:
+        if not isinstance(theta, float):
+            theta = theta[0]
+        
+        qr = qk.QuantumRegister(2, "qr")
+        cr = qk.ClassicalRegister(1, "cr")
+        qc = qk.QuantumCircuit(qr, cr)
+
+        qc.h(qr[0])
+        qc.cx(qr[0], qr[1])
+        qc.rx(theta, qr[0])
+
         if op == "XX":
             # Change basis
             qc.h(qr[0])
@@ -59,9 +67,8 @@ class SimpleQiskitHamiltonian(QiskitHamiltonian):
 
             # Measure
             qc.measure(qr[1], cr[0])
-        else:
-            print(f"Warning: Measurement on the {op} basis is not supported.")
-            return None
+        elif op is not None:
+            raise ValueError(f"Warning: Measurement on the {op} basis is not supported.")
         
         return qc
     
@@ -73,7 +80,7 @@ class SimpleQiskitHamiltonian(QiskitHamiltonian):
 ##########################
 ### QuTiP Hamiltonians ###
 ##########################
-from qutip.qip.circuit import QubitCircuit, Gate
+from qutip.qip.circuit import QubitCircuit
 from qutip import Qobj
 
 
@@ -96,8 +103,15 @@ class SimpleQutipHamiltonian(QutipHamiltonian):
     def __init__(self):
         super().__init__(["XX", "YY", "ZZ"])
 
-    def get_measurer(self, qc: QubitCircuit,
-                           op: str) -> dict:
+    def construct_ansatz(self, theta: list|float, op: str|None=None) -> dict:
+        if not isinstance(theta, float):
+            theta = theta[0]
+
+        qc = QubitCircuit(N=2, num_cbits=1)
+        qc.add_gate("SNOT", targets=[0])
+        qc.add_gate("CNOT", controls=0, targets=1)
+        qc.add_gate("RX", targets=[0], arg_value=theta)
+
         if op == "XX":
             # Change basis
             qc.add_gate("SNOT", targets=[0])
@@ -130,9 +144,8 @@ class SimpleQutipHamiltonian(QutipHamiltonian):
 
             # Measure
             qc.add_measurement("M", targets=1, classical_store=0)
-        else:
-            print(f"Warning: Measurement on the {op} basis is not supported.")
-            return None
+        elif op is not None:
+            raise ValueError(f"Warning: Measurement on the {op} basis is not supported.")
         
         return qc
     

@@ -1,6 +1,6 @@
 import numpy as np
 from typing import Tuple
-from qubit import Qubit
+from qubits.qubit import Qubit
 
 class StateVector(Qubit):
     

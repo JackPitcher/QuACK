@@ -1,9 +1,9 @@
 import numpy as np
 
-from gate import Gate
-from single_gate import X, Z, SingleGate
+from gates.gate import Gate
+from gates.single_gate import X, Z, SingleGate
 from qubits import Register, StateVector, DensityMatrix, Qubit
-from multi_qubit_gates import MultiQubitGate, SWAP
+from gates.multi_qubit_gates import MultiQubitGate, SWAP
 from scipy.linalg import block_diag
 
 class ControlledGate(Gate):

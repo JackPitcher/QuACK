@@ -1,5 +1,5 @@
 import numpy as np
-from qubit import Qubit
+from qubits.qubit import Qubit
 
 class DensityMatrix(Qubit):
     

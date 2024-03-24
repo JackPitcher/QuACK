@@ -56,10 +56,12 @@ class Qubit:
         Returns a random collapsed state according to the measurement statistics.
         """
         states, probs = self._get_measurement_stats()
+        probs = [float(p.real) for p in probs]
         collapsed_state_ind = np.random.choice(len(states), p=probs)
         self._state = states[collapsed_state_ind]._state
         if return_stats:
             return (self._state, states, probs)
+        return self._state
         
     def compute_normalization(self, state):
         raise NotImplementedError

@@ -1,7 +1,7 @@
 from collections.abc import Sequence
-from state_vector import StateVector
-from density_matrix import DensityMatrix
-from qubit import Qubit
+from qubits.state_vector import StateVector
+from qubits.density_matrix import DensityMatrix
+from qubits.qubit import Qubit
 
 import numpy as np
 

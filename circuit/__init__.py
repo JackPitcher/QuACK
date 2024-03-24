@@ -1,5 +1,5 @@
 import sys
-sys.path.append(r'c:/Users/jackp/QuACK/circuit')
+#sys.path.append(r'c:/Users/jackp/QuACK/circuit')
 
-from quantum_circuit import QuantumCircuit
-from operations import MeasurementOp, GateOp
+from circuit.quantum_circuit import QuantumCircuit
+from circuit.operations import MeasurementOp, GateOp

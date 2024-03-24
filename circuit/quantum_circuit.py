@@ -1,6 +1,6 @@
 from qubits import Register
 from gates import CNOT, X, Y, Z, H, Gate, SWAP, CSWAP, CZ
-from operations import MeasurementOp, GateOp
+from circuit.operations import MeasurementOp, GateOp
 from typing import Union
 
 class QuantumCircuit:
