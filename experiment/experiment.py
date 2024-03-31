@@ -7,9 +7,9 @@ from qutip import tensor, basis
 import qiskit as qk
 from qiskit_aer import Aer
 # Import QuACK
-from quantumcircuitbuilder.qcb import QuantumCircuitBuilder
 from hamiltonian.hamiltonian import Hamiltonian
 from optimizer.optimizer import Optimizer
+from circuit.quantum_circuit import QuantumCircuit
 
 class Experiment:
     """
@@ -18,7 +18,6 @@ class Experiment:
     === Attributes ===
     - hamiltonian: the function that returns the energy value of the Hamiltonian
     - ops: the operations needed to measure the hamiltonian's energy
-    - qcb: the QuantumCircuitBuilder that builds the circuit we will use to optimize the Hamiltonian
     - optimizer: the optimization method
     - module: the module being used. Can be 'qiskit' or 'qutip'
 
@@ -26,22 +25,18 @@ class Experiment:
     - self.module == self.qcb.module
     - self.module == self.hamiltonian.module
     """
-    hamiltonian: callable
-    qcb: QuantumCircuitBuilder
-    optimizer: callable
+    hamiltonian: Hamiltonian
+    optimizer: Optimizer
     module: str
     params: dict
 
-    def __init__(self, hamiltonian: callable,
-                       qcb: QuantumCircuitBuilder,
+    def __init__(self, hamiltonian: Hamiltonian,
                        optimizer: Optimizer,
                        module: str) -> None:
-        if module != hamiltonian.module \
-            or module != qcb.module:
+        if module != hamiltonian.module:
             raise TypeError("Please provide consistent module usage.")
 
         self.hamiltonian = hamiltonian
-        self.qcb = qcb
         optimizer.set_func(self._step)
         self.optimizer = optimizer
         self.module = module
@@ -58,13 +53,7 @@ class Experiment:
     def _step(self, theta: list, verbose=False) -> float:
         vqe_res = {}
         for op in self.hamiltonian.get_ops():
-            if self.module == "qutip":
-                qc = self.qcb.ansatz(theta)
-                qc = self.hamiltonian.get_measurer(qc, op)
-            elif self.module == "qiskit":
-                qc, qr, cr = self.qcb.ansatz(theta)
-                qc = self.hamiltonian.get_measurer(qc, qr, cr, op)
-            
+            qc = self.hamiltonian.construct_ansatz(theta=theta, op=op)            
             counts = self._get_counts(qc)
             vqe_res[op] = (counts[0] - counts[1])/self.params["shots"]
     
@@ -81,9 +70,8 @@ class Experiment:
 
 class QiskitExperiment(Experiment):
     def __init__(self, hamiltonian: Hamiltonian,
-                       qcb: QuantumCircuitBuilder,
-                       optimizer: callable) -> None:
-        super().__init__(hamiltonian, qcb, optimizer, "qiskit")
+                       optimizer: Optimizer) -> None:
+        super().__init__(hamiltonian, optimizer, "qiskit")
     
     def _get_counts(self, qc) -> dict:
         counts = {0: 0, 1: 0}
@@ -99,9 +87,8 @@ class QiskitExperiment(Experiment):
 
 class QutipExperiment(Experiment):
     def __init__(self, hamiltonian: Hamiltonian,
-                       qcb: QuantumCircuitBuilder,
-                       optimizer: callable) -> None:
-        super().__init__(hamiltonian, qcb, optimizer, "qutip")
+                       optimizer: Optimizer) -> None:
+        super().__init__(hamiltonian, optimizer, "qutip")
     
     def _get_counts(self, qc) -> dict:
         counts = {0: 0, 1: 0}
@@ -112,3 +99,32 @@ class QutipExperiment(Experiment):
             counts[result.get_cbits(0)[0]] += 1
         
         return counts
+    
+
+class QuackExperiment(Experiment):
+    def __init__(self, hamiltonian: Hamiltonian,
+                 optimizer: Optimizer) -> None:
+        super().__init__(hamiltonian, optimizer, "quack")
+    
+    def _get_counts(self, qc: QuantumCircuit, theta: list, op: str) -> dict:
+        counts = {0: 0, 1: 0}
+        for _ in range(self.params["shots"]):
+            qc = self.hamiltonian.construct_ansatz(theta=theta, op=op)
+            qc.run()
+            result = qc.classical_storage[0]
+            if result == 0:
+                counts[0] += 1
+            else:
+                counts[1] += 1
+        return counts
+    
+    def _step(self, theta: list, verbose=False) -> float:
+        vqe_res = {}
+        for op in self.hamiltonian.get_ops():
+            qc = self.hamiltonian.construct_ansatz(theta=theta, op=op)            
+            counts = self._get_counts(qc, theta=theta, op=op)
+            vqe_res[op] = (counts[0] - counts[1])/self.params["shots"]
+    
+        energy = self.hamiltonian.get_energy(vqe_res)
+
+        return energy

@@ -1,5 +1,5 @@
 import numpy as np
-from qubit import Qubit
+from qubits.qubit import Qubit
 
 class DensityMatrix(Qubit):
     
@@ -14,6 +14,9 @@ class DensityMatrix(Qubit):
     def compute_normalization(self, state):
         """Computes the normalization of the density matrix by taking its trace."""
         return np.trace(state)
+    
+    def _as_qubit(self, state) -> 'DensityMatrix':
+        return DensityMatrix(state)
         
     def to_state_vector(self):
         """Converts the density matrix to a state vector when it is in a pure state.
@@ -40,17 +43,20 @@ class DensityMatrix(Qubit):
         Returns:
             np array: The matrix after tracing it out. 
         """
-        if system == 1:
+        if system == 1 or system == 0:
             return np.trace(self._state.reshape(2, self.dim // 2, 2, self.dim // 2), axis1=0, axis2=2)
-        return np.trace(self._state.reshape(*[2] * 4), axis1=1, axis2=3)
+        return np.trace(self._state.reshape(2, self.dim // 2, 2, self.dim // 2), axis1=1, axis2=3)
         
-    def _get_measurement_stats(self):
+    def _get_measurement_stats(self, projectors: list[np.array] = []):
         """
         Measures the qubit in the computational basis.
         Returns a list of collapsed states and the probability associated with them.
         """
-        zero_state = np.array([[1, 0], [0, 0]])
-        one_state = np.array([[0, 0], [0, 1]])
-        zero_prob = np.trace(zero_state @ self._state)
-        one_prob = np.trace(one_state @ self._state)
-        return ([DensityMatrix(zero_state), DensityMatrix(one_state)], [zero_prob.item(), one_prob.item()]) 
+        if projectors == []:
+            zero_state = np.array([[1, 0], [0, 0]])
+            one_state = np.array([[0, 0], [0, 1]])
+            projectors = [zero_state, one_state]
+        probs = []
+        for projector in projectors:
+            probs.append(np.trace(projector @ self._state).item())
+        return (projectors, probs) 

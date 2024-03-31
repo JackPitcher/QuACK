@@ -4,6 +4,11 @@ import numpy as np
 class Gate:
     """Abstract Gate class, representing a generic quantum gate."""
     
+    ZZ = np.array([[1, 0], [0, 0]])
+    OO = np.array([[0, 0], [0, 1]])
+    OZ = np.array([[0, 0], [1, 0]])
+    ZO = np.array([[0, 1], [0, 0]])
+    
     targets: list[int] = []
     register: Register = None
     theta: float = 0.0
@@ -27,16 +32,8 @@ class Gate:
         """
         gate = self.matrix_rep()
         state = self.get_state()
-        if isinstance(state, DensityMatrix):
-            # measure as a density matrix
-            evolved_state = DensityMatrix(gate @ state.get_state() @ np.matrix(gate).getH())
-        else:
-            # measure as a state vector
-            evolved_state = StateVector(gate @ state.ket())
-        # turn the evolved state into a list of qubits and place them in the register.
-        qubits = self.to_qubit(evolved_state)
-        for target, qubit in zip(self.targets, qubits):
-            self.register[target] = qubit
+        evolved_state = DensityMatrix(gate @ state.get_state() @ gate.conj().T)
+        self.register.update_state(evolved_state)
         return self.register
     
     def matrix_rep(self) -> np.array:
@@ -45,6 +42,6 @@ class Gate:
     def get_state(self) -> Qubit:
         raise NotImplementedError
     
-    def to_qubit(self, evolved_state: Qubit) -> list[Qubit]:
+    def get_all_terms(self) -> list[np.array]:
         raise NotImplementedError
         

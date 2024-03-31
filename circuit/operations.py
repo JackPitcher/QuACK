@@ -1,4 +1,4 @@
-from gates import Gate, X, Y, Z, H, RX, RY, RZ, CNOT, CZ, SWAP, CSWAP
+from gates import Gate, X, Y, Z, H, RX, RY, RZ, CNOT, CZ, SWAP, CSWAP, Phase
 from qubits import Register
 
 class MeasurementOp:
@@ -21,6 +21,7 @@ class GateOp:
     y_names = ["y"]
     z_names = ['z']
     h_names = ["h", "hadamard"]
+    phase_names = ["phase", "sdg"]
     rx_names = ["rx"]
     ry_names = ["ry"]
     rz_names = ['rz']
@@ -59,4 +60,6 @@ class GateOp:
             return RZ(register=self.reg, targets=self.targets, theta=self.theta)
         if gate_name.lower() in self.ry_names:
             return RY(register=self.reg, targets=self.targets, theta=self.theta)
+        if gate_name.lower() in self.phase_names:
+            return Phase(register=self.reg, targets=self.targets)
         raise ValueError("Gate name is not in the currently supported gates.")
