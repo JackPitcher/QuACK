@@ -15,33 +15,9 @@ class ControlledGate(Gate):
     swap_names: list[str] = ['swap']
     
     def __init__(self, register: Register, targets: list[int], 
-                 controls: list[int], theta: float = 0,  gate_name: str = '') -> None:
+                 controls: list[int], theta: float = 0) -> None:
         super().__init__(register, targets, theta)
         self.controls = controls
-        if gate_name:
-            self.gate = self.get_gate(gate_name)
-        
-    def to_qubit(self, evolved_state: Qubit) -> list[Qubit]:
-        """Turns the evolved state into a list of qubits.
-
-        Args:
-            evolved_state (Qubit): The evolved state.
-
-        Returns:
-            list[Qubit]: A list of qubits corresponding that evolved.
-        """
-        if not isinstance(evolved_state, DensityMatrix):
-            evolved_state = DensityMatrix(evolved_state.to_density_matrix())
-        for _ in range(len(self.controls)):
-            # trace out control bits since control bits do not evolve.
-            evolved_state = DensityMatrix(evolved_state.partial_trace(system=1))
-        if not self.register.is_density_matrix and np.trace(evolved_state.get_state() @ evolved_state.get_state()) == 1:
-            evolved_state = StateVector(evolved_state.to_state_vector())
-        else:
-            # controlled gates enable entanglement, so if the state is now entangled, we should
-            # update the register so that everything is represented as a density matrix.
-            self.register.set_to_dm()
-        return self.gate.to_qubit(evolved_state)
         
     def get_state(self) -> Qubit:
         """Gets the state by tensoring together the control qubits with the target qubits.
@@ -49,54 +25,53 @@ class ControlledGate(Gate):
         Returns:
             Qubit: The combined state.
         """
-        control_qubit = self.register[self.controls[0]]
-        if len(self.controls) > 1:
-            control_qubits = [self.register[control] for control in self.controls[1:]]
-            if self.register.is_density_matrix:
-                control_qubit = DensityMatrix(control_qubit.tensor(control_qubits))
-            else:
-                control_qubit = StateVector(control_qubit.tensor(control_qubits))
-        target = self.register[self.targets[0]]
-        if len(self.targets) > 1:
-            target_qubits = [self.register[target] for target in self.targets[1:]]
-            if self.register.is_density_matrix:
-                target = DensityMatrix(target.tensor(target_qubits))
-            else:
-                target = StateVector(target.tensor(target_qubits))
-        if self.register.is_density_matrix:
-            return DensityMatrix(control_qubit.tensor(target))
-        else:
-            return StateVector(control_qubit.tensor(target))
-        
-    def matrix_rep(self):
-        """Expands the gate to work with N control bits"""
-        I = np.eye(2 ** len(self.targets))
-        num_controls = len(self.controls)
-        block_matrices = [I] * (2 ** num_controls - 1) + [self.gate.matrix_rep()]
-        gate = block_diag(*block_matrices) 
-        return gate
+        return self.register.state
     
-    def get_gate(self, gate_name: str):
-        if gate_name.lower() in self.x_names:
-            return X(self.register, self.targets)
-        if gate_name.lower() in self.swap_names:
-            return SWAP(self.register, self.targets)
-        raise ValueError("Not an acceptable name!")
+    def matrix_rep(self):
+        matrix_terms = self.get_all_terms()
+        qubit_list = range(len(self.targets + self.controls))
+        qubit_counter = 0
+        if 0 in self.controls + self.targets:
+            terms = matrix_terms[qubit_counter]
+            qubit_counter += 1
+        else:
+            terms = [np.eye(2) for _ in range(len(matrix_terms[0]))]
+        
+        for i in range(self.register.num_qubits - 1):
+            if i + 1 in self.controls + self.targets:
+                qubit = qubit_list[qubit_counter]
+                qubit_counter += 1
+                terms = [np.kron(terms[j], matrix_terms[qubit][j]) for j in range(len(terms))]
+            else:
+                terms = [np.kron(terms[j], np.eye(2)) for j in range(len(terms))]
+        return sum(terms)
 
 class CNOT(ControlledGate):
     
     def __init__(self, register: Register, targets: list[int], controls: list[int], theta: float = 0) -> None:
         super().__init__(register, targets, controls, theta)
         self.gate = X(self.register, self.targets)
+        
+    def get_all_terms(self) -> list:
+        return [[self.OO, self.OO, self.ZZ, self.ZZ], [self.OZ, self.ZO, self.OO, self.ZZ]]
 
 class CZ(ControlledGate):
+    
     def __init__(self, register: Register, targets: list[int], controls: list[int], theta: float = 0) -> None:
         super().__init__(register, targets, controls, theta)
         self.gate = Z(self.register, self.targets)
+        
+    def get_all_terms(self) -> list:
+        return [[self.OO, self.OO, self.ZZ, self.ZZ], [self.OO, self.ZZ, self.OO, -1 * self.ZZ]]
     
 class CSWAP(ControlledGate):
     
     def __init__(self, register: Register, targets: list[int], controls: list[int], theta: float = 0) -> None:
         super().__init__(register, targets, controls, theta)
         self.gate = SWAP(self.register, self.targets)
+        
+    def get_all_terms(self) -> list:
+        return [[self.OO, self.OO, self.OO, self.OO, self.ZZ, self.ZZ, self.ZZ, self.ZZ], 
+                [self.OO, self.OO, self.OO, self.OO, self.ZZ, self.ZO, self.OZ, self.ZZ], 
+                [self.OO, self.OO, self.OO, self.OO, self.ZZ, self.OZ, self.ZO, self.ZZ]]
         

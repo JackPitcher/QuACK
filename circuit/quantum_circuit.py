@@ -6,11 +6,10 @@ from typing import Union
 class QuantumCircuit:
     
     reg: Register = None
-    operations: dict = {}
     classical_storage: list[int]
+    ops: list[Union[MeasurementOp, GateOp]]
     
-    def __init__(self, reg: Register, operations: dict, num_classical_stores: int, 
-                 ops: list[Union[MeasurementOp, GateOp]] = []) -> None:
+    def __init__(self, reg: Register, num_classical_stores: int, ops: list[Union[MeasurementOp, GateOp]]) -> None:
         """Initlalizes the quantum circuit, with a register of qubits to act on, and a dictionary of operations (e.g. measurements or gates).
         TODO: We should make a way to draw the circuit out, similar to how other QI libraries allow you
         to draw the circuit. That will make it easier to debug.
@@ -33,26 +32,10 @@ class QuantumCircuit:
             qubits 0 and 1, and then measures both of these and storing them in different classical registers.
         """
         self.reg = reg
-        self.operations = operations
         self.classical_storage = [0 for _ in range(num_classical_stores)]
         self.ops = ops
-    
-    def run(self):
-        for op in self.operations.keys():
-            if "measure" in op:
-                target_dict = self.operations[op]
-                target = target_dict["target"]
-                classical_store = target_dict["classical_store"]
-                result = self.reg.measure(target)
-                self.classical_storage[classical_store] = result
-            else:
-                target_dict = self.operations[op]
-                targets = target_dict["targets"]
-                controls = target_dict["controls"]
-                gate = self._create_gate(gate_name=op, targets=targets, controls=controls)
-                self.reg = gate.evolve()
                 
-    def run_with_ops(self):
+    def run(self):
         for op in self.ops:
             if isinstance(op, MeasurementOp):
                 target = op.target

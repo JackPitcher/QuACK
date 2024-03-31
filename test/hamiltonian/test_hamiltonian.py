@@ -1,3 +1,6 @@
+import sys
+sys.path.append(r'c:/Users/jackp/QuACK')
+
 import unittest
 import numpy as np
 from hamiltonian.hamiltonian import SimpleQuackHamiltonian
@@ -20,9 +23,9 @@ class TestQuackHamiltonian(unittest.TestCase):
             counts = {0: 0, 1: 0}
             for _ in range(shots):
                 qc = h.construct_ansatz(theta=theta, op=op)
-                qc.run_with_ops()
+                qc.run()
                 result = qc.classical_storage[0]
-                if np.array_equal(result, [[1, 0], [0, 0]]):
+                if result == 0:
                     counts[0] += 1
                 else:
                     counts[1] += 1

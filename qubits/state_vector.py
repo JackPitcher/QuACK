@@ -16,6 +16,12 @@ class StateVector(Qubit):
         """Computes the normalization of the state by summing the absolute value squared.
         TODO: Make this access self._state instead of passing state parameter."""
         return np.sqrt(np.sum(np.abs(state) ** 2))
+    
+    def get_state(self):
+        return self._state
+    
+    def _as_qubit(self, state):
+        return StateVector(state)
         
     def bra(self) -> np.array:
         """Returns a bra (i.e. a row vector, conjugate transpose) representation of the qubit.
@@ -43,4 +49,18 @@ class StateVector(Qubit):
         zero_prob = self.bra() @ zero_proj @ self.ket()
         one_prob = self.bra() @ one_proj @ self.ket()
         return ([zero_state, one_state], [zero_prob.item(), one_prob.item()]) 
+    
+    def _get_measurement_stats(self, projectors: list[np.array] = []):
+        """
+        Measures the qubit in the computational basis.
+        Returns a list of collapsed states and the probability associated with them.
+        """
+        if projectors == []:
+            zero_state = np.array([[1, 0], [0, 0]])
+            one_state = np.array([[0, 0], [0, 1]])
+            projectors = [zero_state, one_state]
+        probs = []
+        for projector in projectors:
+            probs.append(self.bra() @ projector @ self.ket())
+        return (projectors, probs)
         

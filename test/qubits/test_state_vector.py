@@ -57,8 +57,8 @@ class TestStateVector(TestQubit):
         one_state = StateVector(np.array([0, 1]))
         zero_state = StateVector(np.array([1, 0]))
         measurement_stats = qubit._get_measurement_stats()
-        self.assertTrue((abs(measurement_stats[0][1].ket() - one_state.ket()) < self.fp_tol).all())
-        self.assertTrue((abs(measurement_stats[0][0].ket() - zero_state.ket()) < self.fp_tol).all())
+        self.assertTrue(StateVector(DensityMatrix(measurement_stats[0][1]).to_state_vector()) == one_state)
+        self.assertTrue(StateVector(DensityMatrix(measurement_stats[0][0]).to_state_vector()) == zero_state)
         self.assertTrue(measurement_stats[1] == [1, 0])
         
     def test_measurement_stats_x_eigenstate(self):
@@ -66,8 +66,8 @@ class TestStateVector(TestQubit):
         one_state = StateVector(np.array([0, 1]))
         zero_state = StateVector(np.array([1, 0]))
         measurement_stats = qubit._get_measurement_stats()
-        self.assertTrue((abs(measurement_stats[0][1].ket() - one_state.ket()) < self.fp_tol).all())
-        self.assertTrue((abs(measurement_stats[0][0].ket() - zero_state.ket()) < self.fp_tol).all())
+        self.assertTrue(StateVector(DensityMatrix(measurement_stats[0][1]).to_state_vector()) == one_state)
+        self.assertTrue(StateVector(DensityMatrix(measurement_stats[0][0]).to_state_vector()) == zero_state)
         self.assertTrue((abs(np.array(measurement_stats[1]) - np.array([0.5, 0.5])) < self.fp_tol).all())
         
     def test_to_density_matrix(self):

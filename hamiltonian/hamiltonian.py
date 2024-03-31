@@ -60,8 +60,8 @@ class SimpleQuackHamiltonian(QuackHamiltonian):
             ops.append(GateOp(name="cnot", register=register, targets=[1], controls=[0]))
             ops.append(MeasurementOp(target=1, classical_storage=0))
         elif op == "YY":
-            ops.append(GateOp(name="z", register=register, targets=[0]))
-            ops.append(GateOp(name="z", register=register, targets=[1]))
+            ops.append(GateOp(name="sdg", register=register, targets=[0]))
+            ops.append(GateOp(name="sdg", register=register, targets=[1]))
             ops.append(GateOp(name="h", register=register, targets=[0]))
             ops.append(GateOp(name="h", register=register, targets=[1]))
             ops.append(GateOp(name="cnot", register=register, targets=[1], controls=[0]))
@@ -72,7 +72,7 @@ class SimpleQuackHamiltonian(QuackHamiltonian):
         elif op is not None:
             raise ValueError(f"Warning: Measurement on the {op} basis is not supported.")
         
-        circuit = QuantumCircuit(reg=register, operations={}, num_classical_stores=1, ops=ops)
+        circuit = QuantumCircuit(reg=register, num_classical_stores=1, ops=ops)
         return circuit
     
     def get_energy(self, values: dict) -> float:
