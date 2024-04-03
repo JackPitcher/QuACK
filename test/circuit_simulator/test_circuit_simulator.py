@@ -1,7 +1,11 @@
-from circuit_simulator.CircuitSimulator import NumbaSimulator, CUDASimulator
+import sys
+sys.path.append(r'c:/Users/jackp/QuACK')
+
+from circuit_simulator import NumbaSimulator
 from circuit import QuantumCircuit, GateOp, MeasurementOp
 from qubits import Register, StateVector
 import numpy as np
+import unittest
 TOL = 1e-6
 
 
@@ -43,7 +47,7 @@ def get_classical_counts(classical_storage: np.array, index: int):
 
 
 
-class TestNumbaSimulator:
+class TestNumbaSimulator(unittest.TestCase):
     num_shots = 1e3
     tol = 1e-6
 
@@ -108,3 +112,7 @@ class TestNumbaSimulator:
         sim.run()
         for i in range(sim.cs_result.shape[0]):
             assert abs(sim.cs_result[i, 2] - 0) < self.tol
+            
+
+if __name__ == '__main__':
+    unittest.main()

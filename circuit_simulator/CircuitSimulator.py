@@ -2,70 +2,10 @@ import sys
 sys.path.append(r'c:/Users/npmgs/github/QuACK')
 
 from circuit import QuantumCircuit, MeasurementOp, GateOp
-from qubits import DensityMatrix, Register
 from numba import njit, cuda
 import numpy as np
 import math
-
-
-def get_projectors(register: Register, index: int) -> tuple[np.array, np.array]:
-    """
-    For a given register, this returns the zero projector onto the index given.
-
-    === Attributes ===
-    - register: the register to define the projector on
-    - index: the qubit to measure
-    """
-    if index < 0 or index > len(register.order):
-        raise ValueError("Please provide a valid index!")
-
-    index = register.order[index]
-    zero_state = np.array([[1, 0], [0, 0]])
-    one_state = np.array([[0, 0], [0, 1]])
-    zero_proj_lst = [np.eye(2) if i != index else zero_state for i in range(register.num_qubits)]
-    zero_proj = zero_proj_lst[0]
-    for i in range(1, register.num_qubits):
-        zero_proj = np.kron(zero_proj, zero_proj_lst[i])
-    return zero_proj
-
-
-@njit
-def numba_matmul(A: np.array, B: np.array) -> np.array:
-    """
-    Naive matrix multiplication in Numba.
-
-    Computes C = A @ B
-
-    === Prerequisites ===
-    - A.shape[1] == B.shape[0]
-    """
-    C = np.zeros(shape=(A.shape[0], B.shape[1]), dtype=np.complex64)
-    for row in range(A.shape[0]):
-        for col in range(B.shape[1]):
-            for k in range(A.shape[1]):
-                C[row, col] += A[row, k] * B[k, col]
-    return C
-
-
-@cuda.jit
-def cuda_matmul(A: np.array, B: np.array, C: np.array) -> np.array:
-    """
-    Naive matrix multiplication in Numba CUDA.
-    
-    Computes C = A @ B
-
-    === Prerequisites ===
-    - A.shape[1] == B.shape[0]
-    - C.shape[0] == A.shape[0]
-    - C.shape[1] == B.shape[1]
-    """
-    i, j = cuda.grid(2)
-    if i < C.shape[0] and j < C.shape[1]:
-        tmp = 0j
-        for k in range(A.shape[1]):
-            tmp += A[i, k] * B[k, j]
-        C[i, j] = tmp
-
+from utils import numba_matmul, cuda_matmul
 
 class CircuitSimulator:
     """
@@ -110,7 +50,7 @@ class CircuitSimulator:
                 ops.append(op.gate.matrix_rep())
                 classical_store.append(-1)
             elif isinstance(op, MeasurementOp):
-                ops.append(get_projectors(self.circuit.reg, op.target))
+                ops.append(self.circuit.reg.get_zero_projector(op.target, self.circuit.reg.num_qubits))
                 classical_store.append(op.classical_store)
         
         return np.array(ops, dtype=np.complex64), state, np.array(classical_store, dtype=np.int8)
@@ -185,11 +125,13 @@ class NumbaSimulator(CircuitSimulator):
             state_out[shot] = state
             for i in range(len(ops)):
                 if cs[i] == -1:  # this is a gate
-                    #out[shot] = ops[i] @ out[shot] @ ops[i].conj().T
-                    state_out[shot] = numba_matmul(ops[i], state_out[shot])
                     state_out[shot] = numba_matmul(state_out[shot], ops[i].conj().T)
+                    state_out[shot] = numba_matmul(ops[i], state_out[shot])
                 else:  # this is a measurement
-                    zero_prob = float(max(np.trace(numba_matmul(state_out[shot], ops[i])).real, 0.0))
+                    X = numba_matmul(state_out[shot], ops[i])
+                    zero_prob = float(max(np.trace(X).real, 0.0))
+                    # TODO: Need to check whether this really works - I think we need to set the state measured to be zero/one, 
+                    # but it seems to work for now
                     one_prob = 1 - zero_prob
                     cs_out[shot, cs[i], 0] = zero_prob
                     cs_out[shot, cs[i], 1] = one_prob

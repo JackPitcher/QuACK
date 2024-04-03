@@ -10,6 +10,7 @@ from qiskit_aer import Aer
 from hamiltonian.hamiltonian import Hamiltonian
 from optimizer.optimizer import Optimizer
 from circuit.quantum_circuit import QuantumCircuit
+from circuit_simulator import NumbaSimulator
 
 class Experiment:
     """
@@ -105,17 +106,18 @@ class QuackExperiment(Experiment):
     def __init__(self, hamiltonian: Hamiltonian,
                  optimizer: Optimizer) -> None:
         super().__init__(hamiltonian, optimizer, "quack")
+        
+    @staticmethod    
+    def get_classical_counts(classical_storage: np.array, index: int):
+        result = {0: 0, 1: 0}
+        for shot in classical_storage:
+            result[shot[index]] += 1
+        return result
     
     def _get_counts(self, qc: QuantumCircuit, theta: list, op: str) -> dict:
-        counts = {0: 0, 1: 0}
-        for _ in range(self.params["shots"]):
-            qc = self.hamiltonian.construct_ansatz(theta=theta, op=op)
-            qc.run()
-            result = qc.classical_storage[0]
-            if result == 0:
-                counts[0] += 1
-            else:
-                counts[1] += 1
+        sim = NumbaSimulator(qc, self.params["shots"], "")
+        sim.run()
+        counts = self.get_classical_counts(sim.cs_result, 0)
         return counts
     
     def _step(self, theta: list, verbose=False) -> float:
