@@ -103,9 +103,19 @@ class QutipExperiment(Experiment):
     
 
 class QuackExperiment(Experiment):
+    """
+    A class for running an experiment in QuACK.
+
+    === Attributes ===
+    - simulator: the constructor for which simulator to use.
+    """
+    simulator: callable
+
     def __init__(self, hamiltonian: Hamiltonian,
-                 optimizer: Optimizer) -> None:
+                 optimizer: Optimizer,
+                 simulator: callable) -> None:
         super().__init__(hamiltonian, optimizer, "quack")
+        self.simulator = simulator
         
     @staticmethod    
     def get_classical_counts(classical_storage: np.array, index: int):
@@ -114,8 +124,8 @@ class QuackExperiment(Experiment):
             result[shot[index]] += 1
         return result
     
-    def _get_counts(self, qc: QuantumCircuit, theta: list, op: str) -> dict:
-        sim = NumbaSimulator(qc, self.params["shots"], "")
+    def _get_counts(self, qc: QuantumCircuit) -> dict:
+        sim = self.simulator(qc, self.params["shots"], "")
         sim.run()
         counts = self.get_classical_counts(sim.cs_result, 0)
         return counts
@@ -124,7 +134,7 @@ class QuackExperiment(Experiment):
         vqe_res = {}
         for op in self.hamiltonian.get_ops():
             qc = self.hamiltonian.construct_ansatz(theta=theta, op=op)            
-            counts = self._get_counts(qc, theta=theta, op=op)
+            counts = self._get_counts(qc)
             vqe_res[op] = (counts[0] - counts[1])/self.params["shots"]
     
         energy = self.hamiltonian.get_energy(vqe_res)

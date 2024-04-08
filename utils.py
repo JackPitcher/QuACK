@@ -83,7 +83,7 @@ def cu_conj_T(A: np.array, B: np.array) -> None:
         B[i, j] = A[j, i] - 2j * A[j, i].imag
 
 
-TPB = 4
+TPB = 8
 @cuda.jit
 def cu_left_mul(A: np.array, B: np.array, C: np.array) -> None:
     """
@@ -163,6 +163,53 @@ def cu_right_mul(A: np.array, B: np.array, C: np.array) -> None:
     if x < C.shape[0] and z < C.shape[1] and y < C.shape[2]:
         C[x, z, y] = tmp
 
+
+@cuda.jit
+def cu_right_mul_trace(A: np.array, B: np.array, C: np.array) -> None:
+    """
+    Stores the trace of B[i] @ A^T into C[i], for each i.
+
+    === Prerequisites ===
+    - A.shape == B.shape[1:]
+    - C.shape == B.shape[0]
+    """
+    x = cuda.grid(1)
+    tmp = complex64(0.)
+    for i in range(A.shape[0]):
+        for j in range(A.shape[1]):
+            tmp += A[i, j] * B[x, i, j]
+    C[x] = tmp
+
+
+@cuda.jit
+def cu_trace(A: np.array, B: np.array):
+    """
+    Stores the trace of A[i] into B[i].
+
+    === Prerequisites ===
+    - len(A.shape) == 3
+    - A.shape[1] == A.shape[2]
+    - A.shape[0] == B.shape[0]
+    """
+    x = cuda.grid(1)
+    if x < A.shape[0]:
+        trace = complex64(0.)
+        for i in range(A.shape[1]):
+            trace += A[x, i, i]
+        B[x] = trace
+
+@cuda.jit
+def make_copy(A: np.array, B: np.array) -> None:
+    """
+    Stores A as a copy in B.
+    
+    === Pre-Requisites ===
+    - A.shape = B.shape
+    - len(A.shape) == 3
+    """
+    x, y, z = cuda.grid(3)
+    if x < A.shape[0] and y < A.shape[1] and z < A.shape[2]:
+        B[x, y, z] = A[x, y, z]
 
 def cuda_tensor(lst: np.array) -> np.array:
     ret_val = lst[0]

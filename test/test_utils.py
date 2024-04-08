@@ -68,7 +68,7 @@ class TestUtils(unittest.TestCase):
         B = init_B.copy()
         C = np.zeros_like(B)
 
-        threadsperblock = (4,4,4)
+        threadsperblock = (8,8,8)
         bpg_x = math.ceil(B.shape[0] / threadsperblock[0])
         bpg_y = math.ceil(B.shape[1] / threadsperblock[1])
         bpg_z = math.ceil(B.shape[2] / threadsperblock[2])
@@ -90,6 +90,35 @@ class TestUtils(unittest.TestCase):
         assert np.linalg.norm(A - init_A) < self.tol
         assert np.linalg.norm(B - init_B) < self.tol
         assert np.linalg.norm(C - expected) < self.tol
+
+    def test_cu_right_mul_trace(self):
+        A = np.arange(16, dtype=np.complex64).reshape(4, 4)
+        B = np.arange(320, dtype=np.complex64).reshape(20, 4, 4)
+        C = np.zeros(20, dtype=np.complex64)
+
+        threadsperblock = 32
+        blockspergrid = math.ceil(A.shape[0] / threadsperblock)
+
+        utils.cu_right_mul_trace[blockspergrid, threadsperblock](A, B, C)
+        expected = np.zeros(20, dtype=np.complex64)
+        for i in range(B.shape[0]):
+            expected[i] = np.trace(B[i] @ A.T)
+        
+        assert np.linalg.norm(C - expected) < self.tol
+
+    def test_cu_trace(self):
+        A = np.arange(1280, dtype=np.complex64).reshape(20, 8, 8)
+        B = np.zeros(20, dtype=np.complex64)
+
+        threadsperblock = 32
+        blockspergrid = math.ceil(A.shape[0] / threadsperblock)
+
+        utils.cu_trace[blockspergrid, threadsperblock](A, B)
+        expected = np.zeros(20, dtype=np.complex64)
+        for i in range(A.shape[0]):
+            expected[i] = np.trace(A[i])
+        
+        assert np.linalg.norm(B - expected) < self.tol
 
 
 if __name__ == '__main__':

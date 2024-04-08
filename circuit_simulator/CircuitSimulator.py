@@ -2,7 +2,7 @@ from circuit import QuantumCircuit, MeasurementOp, GateOp
 from numba import njit, cuda
 import numpy as np
 import math
-from utils import numba_matmul, cu_left_mul, cu_right_mul
+from utils import numba_matmul, cu_left_mul, cu_right_mul, make_copy, cu_trace, cu_right_mul_trace
 
 class CircuitSimulator:
     """
@@ -142,30 +142,45 @@ class CUDASimulator(CircuitSimulator):
         cs_size = len(self.circuit.classical_storage)
         cs_out = np.zeros((self.shots,) + (cs_size,) + (2,), dtype=np.float32)
 
-        # Setup CUDA kernel information
+        # Setup CUDA kernel information for matmul
         output_tensor = np.zeros_like(state_out)
-        threadsperblock = (4,4,4)
+        threadsperblock = (8,8,8)
         bpg_x = math.ceil(state_out.shape[0] / threadsperblock[0])
         bpg_y = math.ceil(state_out.shape[1] / threadsperblock[1])
         bpg_z = math.ceil(state_out.shape[2] / threadsperblock[2])
         blockspergrid = (bpg_x, bpg_y, bpg_z)
 
+        # Setup CUDA kernel information for trace
+        trace_output = np.zeros(self.shots, dtype=np.complex64)
+        trace_threadsperblock = 32
+        trace_bpg_x = math.ceil(state_out.shape[0] / trace_threadsperblock)
+        trace_blockspergrid = trace_bpg_x
+
         # Set State
         for i in range(self.shots):
             state_out[i] = state
         
+        # Move things to device
+        state_out_d = cuda.to_device(state_out)
+        output_tensor_d = cuda.to_device(output_tensor)
+        trace_output_d = cuda.to_device(trace_output)
         # Run circuit
         for i in range(len(ops)):
             if cs[i] == -1:  # this is a gate
-                cu_right_mul[blockspergrid, threadsperblock](ops[i].conj().T, state_out, output_tensor)
-                state_out = output_tensor.copy()
-                cu_left_mul[blockspergrid, threadsperblock](ops[i], state_out, output_tensor)
-                state_out = output_tensor.copy()
+                left_op = cuda.to_device(ops[i])
+                right_op = cuda.to_device(ops[i].conj().T)
+                cu_left_mul[blockspergrid, threadsperblock](left_op, state_out_d, output_tensor_d)
+                make_copy[blockspergrid, threadsperblock](output_tensor_d, state_out_d)
+                cu_right_mul[blockspergrid, threadsperblock](right_op, state_out_d, output_tensor_d)
+                make_copy[blockspergrid, threadsperblock](output_tensor_d, state_out_d)
             else:  # this is a measurement
-                cu_right_mul[blockspergrid, threadsperblock](ops[i], state_out, output_tensor)
-                for shot in range(state_out.shape[0]):
-                    X = output_tensor[shot]
-                    zero_prob = float(max(np.trace(X).real, 0.0))
+                op = cuda.to_device(ops[i].T)
+                cu_right_mul_trace[trace_blockspergrid, trace_threadsperblock](op, state_out_d, trace_output_d)
+                #cu_right_mul[blockspergrid, threadsperblock](op, state_out_d, output_tensor_d)
+                #cu_trace[trace_blockspergrid, trace_threadsperblock](output_tensor_d, trace_output_d)
+                X = trace_output_d.copy_to_host() 
+                for shot in range(X.shape[0]):
+                    zero_prob = float(max(X[shot].real, 0.0))
                     cs_out[shot, cs[i], 0] = zero_prob
                     cs_out[shot, cs[i], 1] = 1 - zero_prob
         self.state_result = state_out
