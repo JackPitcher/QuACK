@@ -1,7 +1,7 @@
 import sys
 sys.path.append(r'c:/Users/jackp/QuACK')
 
-from circuit_simulator import NumbaSimulator
+from circuit_simulator import NumbaSimulator, CUDASimulator
 from circuit import QuantumCircuit, GateOp, MeasurementOp
 from qubits import Register, StateVector
 import numpy as np
@@ -109,6 +109,73 @@ class TestNumbaSimulator(unittest.TestCase):
         ops = [h_0, cnot_0, cnot_1, h_1, measure_0, measure_1, cnot_2, cz_0, measure_2]
         circuit = QuantumCircuit(reg=register, num_classical_stores=3, ops=ops)
         sim = NumbaSimulator(circuit, self.num_shots, "")
+        sim.run()
+        for i in range(sim.cs_result.shape[0]):
+            assert abs(sim.cs_result[i, 2] - 0) < self.tol
+
+
+class TestCUDASimulator(unittest.TestCase):
+    num_shots = 1e3
+    tol = 1e-6
+
+    def simple_XX(self):
+        circuit = construct_ansatz(np.pi, "XX")
+        sim = CUDASimulator(circuit, self.num_shots, "")
+        sim.run()
+        counts = get_classical_counts(sim.cs_result, 0)
+        result = (counts[0] - counts[1]) / self.num_shots
+        assert abs(result - 1.0) < self.tol
+
+    def test_simple_YY(self):
+        circuit = construct_ansatz(np.pi, "YY")
+        sim = CUDASimulator(circuit, self.num_shots, "")
+        sim.run()
+        counts = get_classical_counts(sim.cs_result, 0)
+        result = (counts[0] - counts[1]) / self.num_shots
+        assert abs(result - 1.0) < self.tol
+
+    def test_simple_ZZ(self):
+        circuit = construct_ansatz(np.pi, "ZZ")
+        sim = CUDASimulator(circuit, self.num_shots, "")
+        sim.run()
+        counts = get_classical_counts(sim.cs_result, 0)
+        result = (counts[0] - counts[1]) / self.num_shots
+        assert abs(result + 1.0) < self.tol
+
+    def test_teleportation_one(self):
+        input_qubit = StateVector([0, 1])
+        register = Register([input_qubit], N=3)
+        h_0 = GateOp(name="h", register=register, targets=[1])
+        cnot_0 = GateOp(name="cnot", register=register, targets=[2], controls=[1])
+        cnot_1 = GateOp(name="cnot", register=register, targets=[1], controls=[0])
+        h_1 = GateOp(name="h", register=register, targets=[0])
+        measure_0 = MeasurementOp(target=1, classical_storage=0)
+        measure_1 = MeasurementOp(target=0, classical_storage=1)
+        cnot_2 = GateOp(name='cnot', register=register, targets=[2], controls=[1])
+        cz_0 = GateOp(name="cz", register=register, targets=[2], controls=[0])
+        measure_2 = MeasurementOp(target=2, classical_storage=2)
+        ops = [h_0, cnot_0, cnot_1, h_1, measure_0, measure_1, cnot_2, cz_0, measure_2]
+        circuit = QuantumCircuit(reg=register, num_classical_stores=3, ops=ops)
+        sim = CUDASimulator(circuit, self.num_shots, "")
+        sim.run()
+        for i in range(sim.cs_result.shape[0]):
+            assert abs(sim.cs_result[i, 2] - 1) < self.tol
+    
+    def test_teleportation_zero(self):
+        input_qubit = StateVector([1, 0])
+        register = Register([input_qubit], N=3)
+        h_0 = GateOp(name="h", register=register, targets=[1])
+        cnot_0 = GateOp(name="cnot", register=register, targets=[2], controls=[1])
+        cnot_1 = GateOp(name="cnot", register=register, targets=[1], controls=[0])
+        h_1 = GateOp(name="h", register=register, targets=[0])
+        measure_0 = MeasurementOp(target=1, classical_storage=0)
+        measure_1 = MeasurementOp(target=0, classical_storage=1)
+        cnot_2 = GateOp(name='cnot', register=register, targets=[2], controls=[1])
+        cz_0 = GateOp(name="cz", register=register, targets=[2], controls=[0])
+        measure_2 = MeasurementOp(target=2, classical_storage=2)
+        ops = [h_0, cnot_0, cnot_1, h_1, measure_0, measure_1, cnot_2, cz_0, measure_2]
+        circuit = QuantumCircuit(reg=register, num_classical_stores=3, ops=ops)
+        sim = CUDASimulator(circuit, self.num_shots, "")
         sim.run()
         for i in range(sim.cs_result.shape[0]):
             assert abs(sim.cs_result[i, 2] - 0) < self.tol

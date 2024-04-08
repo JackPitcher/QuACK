@@ -1,11 +1,8 @@
-import sys
-sys.path.append(r'c:/Users/npmgs/github/QuACK')
-
 from circuit import QuantumCircuit, MeasurementOp, GateOp
 from numba import njit, cuda
 import numpy as np
 import math
-from utils import numba_matmul, cuda_matmul
+from utils import numba_matmul, cu_left_mul, cu_right_mul
 
 class CircuitSimulator:
     """
@@ -139,22 +136,38 @@ class NumbaSimulator(CircuitSimulator):
 
 class CUDASimulator(CircuitSimulator):
     def run(self):
-        ops, state = self.circuit_to_numpy()
-        ops = np.array(ops, dtype=np.complex64)
-        out = np.zeros((self.shots,) + state.shape, dtype=np.complex64)
-        d_out = cuda.to_device(out)
-        threadsperblock = 256
-        blockspergrid = math.ceil(out.shape[0] / threadsperblock)
-        self._run[blockspergrid, threadsperblock](ops, state, self.shots, d_out)
-        out = d_out.copy_to_host()
-        self.result = out
-        
+        # Setup variables
+        ops, state, cs = self.circuit_to_numpy()
+        state_out = np.zeros((self.shots,) + state.shape, dtype=np.complex64)
+        cs_size = len(self.circuit.classical_storage)
+        cs_out = np.zeros((self.shots,) + (cs_size,) + (2,), dtype=np.float32)
 
-    @staticmethod
-    @cuda.jit
-    def _run(ops: np.array, state: np.array, shots: int, out: np.array):
-        shot = cuda.grid(1)
-        out[shot] = state
+        # Setup CUDA kernel information
+        output_tensor = np.zeros_like(state_out)
+        threadsperblock = (4,4,4)
+        bpg_x = math.ceil(state_out.shape[0] / threadsperblock[0])
+        bpg_y = math.ceil(state_out.shape[1] / threadsperblock[1])
+        bpg_z = math.ceil(state_out.shape[2] / threadsperblock[2])
+        blockspergrid = (bpg_x, bpg_y, bpg_z)
+
+        # Set State
+        for i in range(self.shots):
+            state_out[i] = state
+        
+        # Run circuit
         for i in range(len(ops)):
-            cuda_matmul(ops[i], out[shot], out[shot])
-            cuda_matmul(out[shot], ops[i].conj().T, out[shot])
+            if cs[i] == -1:  # this is a gate
+                cu_right_mul[blockspergrid, threadsperblock](ops[i].conj().T, state_out, output_tensor)
+                state_out = output_tensor.copy()
+                cu_left_mul[blockspergrid, threadsperblock](ops[i], state_out, output_tensor)
+                state_out = output_tensor.copy()
+            else:  # this is a measurement
+                cu_right_mul[blockspergrid, threadsperblock](ops[i], state_out, output_tensor)
+                for shot in range(state_out.shape[0]):
+                    X = output_tensor[shot]
+                    zero_prob = float(max(np.trace(X).real, 0.0))
+                    cs_out[shot, cs[i], 0] = zero_prob
+                    cs_out[shot, cs[i], 1] = 1 - zero_prob
+        self.state_result = state_out
+        self.compute_measurements(cs_out)
+        return state_out, cs_out
