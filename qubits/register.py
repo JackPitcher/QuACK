@@ -2,13 +2,13 @@ from collections.abc import Sequence
 from qubits.state_vector import StateVector
 from qubits.density_matrix import DensityMatrix
 from qubits.qubit import Qubit
+from utils import numba_tensor
 
 import numpy as np
 
 class Register:
     """A Register class that acts as a container for several qubits."""
     
-    order: list[int]
     state: DensityMatrix
     num_qubits: int
     
@@ -23,7 +23,6 @@ class Register:
             # set all extra qubits to ground state
             qubits = qubits + [DensityMatrix([[1, 0], [0, 0]]) for _ in range(N - len(qubits))]
         self.num_qubits = len(qubits)
-        self.order = range(len(qubits))
         self.state = self.compute_state(qubits)
         
     def compute_state(self, qubits) -> Qubit:
@@ -32,6 +31,18 @@ class Register:
         else:
             state = qubits[0]
         return state
+    
+    @staticmethod
+    def get_zero_projector(index: int, num_qubits: int):
+        zero_state = np.array([[1, 0], [0, 0]], dtype=np.float64)
+        zero_proj_lst = np.array([np.eye(2) if i != index else zero_state for i in range(num_qubits)])
+        return numba_tensor(zero_proj_lst)
+    
+    @staticmethod
+    def get_one_projector(index: int, num_qubits: int):
+        one_state = np.array([[0, 0], [0, 1]])
+        one_proj_lst = [np.eye(2) if i != index else one_state for i in range(num_qubits)]
+        return numba_tensor(np.array(one_proj_lst))
         
     def measure(self, index: int, return_stats: bool = False) -> Qubit | tuple:
         """Measures a qubit in the register.
@@ -45,22 +56,15 @@ class Register:
             Either the collapsed state as a StateVector, or the collapsed state along with a list of
             possible states and a list of probabilities of collapsing to those states. 
         """
-        index = self.order[index]
-        zero_state = np.array([[1, 0], [0, 0]])
-        one_state = np.array([[0, 0], [0, 1]])
-        zero_proj_lst = [np.eye(2) if i != index else zero_state for i in range(self.num_qubits)]
-        one_proj_lst = [np.eye(2) if i != index else one_state for i in range(self.num_qubits)]
-        if self.num_qubits > 1:
-            zero_proj = zero_proj_lst[0]
-            one_proj = one_proj_lst[0]
-            for zp, op in zip(zero_proj_lst[1:], one_proj_lst[1:]):
-                zero_proj = np.kron(zero_proj, zp)
-                one_proj = np.kron(one_proj, op)
+        zero_proj = self.get_zero_projector(index, self.num_qubits)
+        one_proj = self.get_one_projector(index, self.num_qubits)
         zero_prob = max(np.trace(self.state.get_state() @ zero_proj), 0.0)
         one_prob = max(np.trace(self.state.get_state() @ one_proj), 0.0)
         probs = [float(zero_prob.real), float(one_prob.real)]
         collapsed_state_ind = np.random.choice(len(probs), p=probs)
         if return_stats:
+            zero_state = np.array([[1, 0], [0, 0]])
+            one_state = np.array([[0, 0], [0, 1]])
             return (collapsed_state_ind, [zero_state, one_state], probs)
         return collapsed_state_ind
         

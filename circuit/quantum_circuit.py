@@ -2,6 +2,7 @@ from qubits import Register
 from gates import CNOT, X, Y, Z, H, Gate, SWAP, CSWAP, CZ
 from circuit.operations import MeasurementOp, GateOp
 from typing import Union
+from numba import njit
 
 class QuantumCircuit:
     
@@ -16,18 +17,7 @@ class QuantumCircuit:
 
         Args:
             reg (Register): This should be a register of qubits with all the qubits necessary for the circuit to work.
-            operations (dict): This is a dictionary in the form
-                {"op_name": {"targets": []}}
-            For GATES, the target dictionary will just be targets, but for measurements, there is also a classical store bit as well, which indicates where
-            the output of the measurement should be stored.
-            For example, I could have an operations dict like this:
-            {
-                "x_0": {"targets": [0]},
-                "measurement_0": {"target: 0", classical_store: 0},
-                "x_1": {"targets": [0, 1]},
-                "measurement_1": {"target: 0", classical_store: 1},
-                "measurement_2": {"target: 1", classical_store: 2}
-            }
+            operations (list): A list of operations of either Gates or Measurements
             This means the circuit should apply the X gate to Qubit 0, then measure it and store the outcome in classical register 0. It then applies the X gate on
             qubits 0 and 1, and then measures both of these and storing them in different classical registers.
         """
@@ -36,6 +26,7 @@ class QuantumCircuit:
         self.ops = ops
                 
     def run(self):
+        # TODO: With the CircuitSimulator, this function is unnecessary, so it can be deleted. Leaving it here for now for testing purposes.
         for op in self.ops:
             if isinstance(op, MeasurementOp):
                 target = op.target
@@ -45,23 +36,4 @@ class QuantumCircuit:
             else:
                 gate = op.gate
                 self.reg = gate.evolve()
-                
-    def _create_gate(self, gate_name: str, targets: list[int], controls: list[int]) -> Gate:
-        if "x_" in gate_name:
-            return X(register=self.reg, targets=targets)
-        if "h_" in gate_name:
-            return H(register=self.reg, targets=targets)
-        if "y_" in gate_name:
-            return Y(register=self.reg, targets=targets)
-        if "cz_" in gate_name:
-            return CZ(register=self.reg, targets=targets, controls=controls)
-        if "z_" in gate_name:
-            return Z(register=self.reg, targets=targets)
-        if "cnot_" in gate_name:
-            return CNOT(register=self.reg, targets=targets, controls=controls)
-        if "swap_" in gate_name:
-            return SWAP(register=self.reg, targets=targets)
-        if "cswap_" in gate_name:
-            return CSWAP(register=self.reg, targets=targets, controls=controls)
-        raise ValueError("Gate name is not in the currently supported gates.")
-    
+                    
