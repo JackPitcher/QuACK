@@ -103,7 +103,7 @@ def benchmark_all(num_runs: int, shots: int, steps: int):
 
 
 if __name__ == "__main__":
-    #test_single("quack_cuda", 2, 64, 64)
-    #test_all(4, 64, 64)
-    compare_quack(4, 1e5, 1)
+    #benchmark_single("quack_cuda", 2, 64, 64)
+    benchmark_all(10, 1e4, 1)
+    #compare_quack(4, 1e5, 1)
     #plot_compare_quack(4, [1e2, 1e3, 1e4, 1e5])
