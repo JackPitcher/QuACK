@@ -6,6 +6,7 @@ sys.path.append(src_dir)
 from hypothesis import given
 from hypothesis.strategies import floats, tuples
 import optimizer.optimizer as src
+import unittest
 TOL = 3e-2
 
 
@@ -70,3 +71,25 @@ def test_nd_quadratic(c: tuple[float, float, float, float],
     assert abs(x[0] + c[0]) < TOL
     assert abs(x[1] + c[1]) < TOL
     assert abs(x[2] + c[2]) < TOL
+
+
+#################
+### TEST ADAM ###
+#################
+TOL = 1e-5
+class TestAdam(unittest.TestCase):
+    def test_1d_basic_quadratic(self):
+        def quadratic(x): return (3.0 * x[0] + 2.0)**2 + 4.0
+        x = [1.0]
+        opt = src.Adam(quadratic, x)
+        x = opt.run(max_iter=1e4)
+        assert abs(x[0] + 2.0/3.0) < TOL
+
+    @given(floats(min_value=-5, max_value=5), floats(min_value=-5, max_value=5), floats(min_value=-1.0, max_value=1.0))
+    def test_1d_quadratic(self, a: float, b: float, x0: float):
+        def quadratic(x): return (x[0] + a)**2 + b
+        x = [x0]
+        opt = src.Adam(quadratic, x)
+        x = opt.run(max_iter=1e4)
+        print(x, a, b, x0)
+        assert abs(x[0] + a) < TOL

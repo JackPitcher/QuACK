@@ -108,3 +108,57 @@ class GradientDescent(Optimizer):
         return self.theta.copy()
 
 
+class Adam(Optimizer):
+    def __init__(self, func: Optional[callable]=None, guess: Optional[np.array]=None,
+                 params: Optional[dict[str, float]]=None):
+        super().__init__(func, guess)
+        if params is None:
+            self.params = {}
+            self.set_adam_vals()
+        else:
+            self.params = params
+
+    def set_param(self, name: str, val: float) -> None:
+        self.params[name] = val
+
+    def set_adam_vals(self, step_size: float=0.001, beta1: float=0.9,
+                      beta2: float=0.999, eps: float=10e-8,
+                      diff_step: float=1e-3) -> None:
+        self.params["Step Size"] = step_size
+        self.params["Beta 1"] = beta1
+        self.params["Beta 2"] = beta2
+        self.params["Epsilon"] = eps
+        self.params["Diff Step"] = diff_step
+
+    def diff(self) -> np.array:
+        """
+        Computes the derivative of self.func, stored in self.d.
+        """
+        for i in range(len(self.theta)):
+            self.theta[i] += self.params["Diff Step"]
+            a = self.func(self.theta)
+            self.theta[i] -= 2*self.params["Diff Step"]
+            self.d[i] = (a - self.func(self.theta)) * 0.5 / self.params["Diff Step"]
+            self.theta[i] += self.params["Diff Step"]
+
+    def run(self, max_iter: int=1e2, verbose: bool=False):
+        self.d = np.zeros_like(self.theta)
+        m_old = np.zeros_like(self.theta)
+        v_old = np.zeros_like(self.theta)
+        t = 0
+        a = self.params["Step Size"]
+        b1 = self.params["Beta 1"]
+        b2 = self.params["Beta 2"]
+        eps = self.params["Epsilon"]
+        while t < max_iter:
+            t += 1
+            self.diff()
+            mt = b1 * m_old + (1 - b1) * self.d
+            vt = b2 * v_old + (1 - b2) * self.d**2
+            mt_hat = mt / (1 - b1**t)
+            vt_hat = vt / (1 - b2**t)
+            self.theta = self.theta - a * mt_hat / (np.sqrt(vt_hat) + eps)
+            m_old = mt
+            v_old = vt
+        return self.theta.copy()
+
