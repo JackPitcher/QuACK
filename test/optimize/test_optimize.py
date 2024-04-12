@@ -82,7 +82,8 @@ class TestAdam(unittest.TestCase):
         def quadratic(x): return (3.0 * x[0] + 2.0)**2 + 4.0
         x = [1.0]
         opt = src.Adam(quadratic, x)
-        x = opt.run(max_iter=1e4)
+        opt.set_param("Step Size", 0.1)
+        x = opt.run(max_iter=1e3)
         assert abs(x[0] + 2.0/3.0) < TOL
 
     @given(floats(min_value=-5, max_value=5), floats(min_value=-5, max_value=5), floats(min_value=-1.0, max_value=1.0))
@@ -90,6 +91,43 @@ class TestAdam(unittest.TestCase):
         def quadratic(x): return (x[0] + a)**2 + b
         x = [x0]
         opt = src.Adam(quadratic, x)
-        x = opt.run(max_iter=1e4)
-        print(x, a, b, x0)
+        opt.set_param("Step Size", 0.1)
+        x = opt.run(max_iter=1e3)
         assert abs(x[0] + a) < TOL
+
+    def test_nd_quadratic_basic(self):
+        a = 1.0
+        b = 2.0
+        c = 3.0
+        d = 4.0
+        def quadratic(x):
+            return (x[0] + a)**2 + (x[1] + b)**2 + (x[2] + c)**2 + d
+        x = [-0.8, -2.1, -3.6]
+        opt = src.Adam(quadratic, x)
+        opt.set_param("Step Size", 0.1)
+        x = opt.run(max_iter=1e3)
+    
+        assert abs(x[0] + a) < TOL
+        assert abs(x[1] + b) < TOL
+        assert abs(x[2] + c) < TOL
+
+
+    @given(tuples(floats(min_value=-5, max_value=5),
+                  floats(min_value=-5, max_value=5),
+                  floats(min_value=-5, max_value=5),
+                  floats(min_value=-5, max_value=5)),
+           tuples(floats(min_value=-1.0, max_value=1.0),
+                  floats(min_value=-1.0, max_value=1.0),
+                  floats(min_value=-1.0, max_value=1.0)))
+    def test_nd_quadratic(self, c: tuple[float, float, float, float], 
+                          x0: tuple[float, float, float]):
+        def quadratic(x):
+            return (x[0] + c[0])**2 + (x[1] + c[1])**2 + (x[2] + c[2])**2 + c[3]
+        x = list(x0)
+        opt = src.Adam(quadratic, x)
+        opt.set_param("Step Size", 0.1)
+        x = opt.run(max_iter=1e3)
+    
+        assert abs(x[0] + c[0]) < TOL
+        assert abs(x[1] + c[1]) < TOL
+        assert abs(x[2] + c[2]) < TOL

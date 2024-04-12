@@ -22,8 +22,8 @@ if module == "quack":
         experiment = QuackExperiment(hamiltonian, optimizer, CUDASimulator)
     elif sim_method == 'cpu':
         experiment = QuackExperiment(hamiltonian, optimizer, NumbaSimulator)
-    experiment.set_param("shots", 64)
-    res = experiment.run([3.1], verbose=False)
+    experiment.set_param("shots", 128)
+    res = experiment.run([3.1], verbose=True)
     print(f"Result: {res}")
 elif module == 'qutip':
     hamiltonian = SimpleQutipHamiltonian()
@@ -37,9 +37,11 @@ elif module == 'qiskit':
     hamiltonian = SimpleQiskitHamiltonian()
     schedule = [[128, 256, 512], [0.1, 0.05, 0.01]]
     step_size = np.pi/1e2
-    optimizer = GradientDescent(schedule=schedule, step_size=step_size)
-    
+    #optimizer = GradientDescent(schedule=schedule, step_size=step_size)
+    optimizer = Adam()
+    optimizer.set_param("Max Iterations", 1e4)
     experiment = QiskitExperiment(hamiltonian, optimizer)
-    experiment.set_param("shots", 128)
+    experiment.set_param("shots", 1e5)
     
-    experiment.run([3.1], verbose=False)
+    res = experiment.run([3.1], verbose=True)
+    print(f"Result: {res}")
