@@ -108,3 +108,60 @@ class GradientDescent(Optimizer):
         return self.theta.copy()
 
 
+ADAM_DEFAULT_PARAMS = {
+    "Step Size": 0.01,
+    "Beta 1": 0.9,
+    "Beta 2": 0.999,
+    "Epsilon": 10e-8,
+    "Diff Step": 1e-1,
+    "Max Iterations": 1e3
+}
+
+class Adam(Optimizer):
+    def __init__(self, func: Optional[callable]=None, guess: Optional[np.array]=None,
+                 params: Optional[dict[str, float]]=None):
+        super().__init__(func, guess)
+        if params is None:
+            self.params = ADAM_DEFAULT_PARAMS.copy()
+        else:
+            self.params = params
+
+    def set_param(self, name: str, val: float) -> None:
+        self.params[name] = val
+
+    def diff(self) -> np.array:
+        """
+        Computes the derivative of self.func, stored in self.d.
+        """
+        for i in range(len(self.theta)):
+            self.theta[i] += self.params["Diff Step"]
+            a = self.func(self.theta)
+            self.theta[i] -= 2*self.params["Diff Step"]
+            self.d[i] = (a - self.func(self.theta)) * 0.5 / self.params["Diff Step"]
+            self.theta[i] += self.params["Diff Step"]
+
+    def run(self, verbose: bool=False):
+        self.d = np.zeros_like(self.theta)
+        m_old = np.zeros_like(self.theta)
+        v_old = np.zeros_like(self.theta)
+        t = 0
+        a = self.params["Step Size"]
+        b1 = self.params["Beta 1"]
+        b2 = self.params["Beta 2"]
+        eps = self.params["Epsilon"]
+        max_iter = self.params["Max Iterations"]
+        while t < max_iter:
+            t += 1
+            self.diff()
+            mt = b1 * m_old + (1 - b1) * self.d
+            vt = b2 * v_old + (1 - b2) * self.d**2
+            mt_hat = mt / (1 - b1**t)
+            vt_hat = vt / (1 - b2**t)
+            self.theta = self.theta - a * mt_hat / (np.sqrt(vt_hat) + eps)
+            m_old = mt
+            v_old = vt
+            if verbose and t % 500 == 0:
+                print(f"t = {t}, theta={self.theta}, mth/svth={mt_hat/(np.sqrt(vt_hat)+eps)}")
+                print(self.d, self.d**2)
+        return self.theta.copy()
+
