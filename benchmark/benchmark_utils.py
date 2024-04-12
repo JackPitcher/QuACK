@@ -36,6 +36,7 @@ def benchmark_single_func(func: callable, func_name: str, num_runs: int):
           f"Average time: {'{:.3e}'.format(stats["average"])}s\n" +
           f"Max time: {'{:.3e}'.format(stats["max"])}s\n" + 
           f"Min time: {'{:.3e}'.format(stats["min"])}s")
+    return stats["average"]
 
 
 def benchmark_multi_func(funcs: list[callable], func_names: list[str], num_runs: int):
