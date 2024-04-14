@@ -44,11 +44,11 @@ class SimpleQuackHamiltonian(QuackHamiltonian):
     def __init__(self) -> None:
         super().__init__(["XX", "YY", "ZZ"])
     
-    def construct_ansatz(self, theta: list|float, op: str | None = None):
+    def construct_ansatz(self, theta: list|float, op: str | None = None, N: int = 2):
         if not isinstance(theta, float):
             theta = theta[0]
 
-        register = Register([], N=2)
+        register = Register([], N=N)
         ops = []
         ops.append(GateOp(name="h", register=register, targets=[0]))
         ops.append(GateOp(name="cnot", register=register, targets=[1], controls=[0]))

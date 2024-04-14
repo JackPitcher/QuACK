@@ -2,7 +2,7 @@ from circuit import QuantumCircuit, MeasurementOp, GateOp
 from numba import njit, cuda, prange
 import numpy as np
 import math
-from utils import numba_matmul, cu_left_mul, cu_right_mul, make_copy, cu_trace, cu_right_mul_trace
+from utils import numba_matmul, cu_left_mul, cu_right_mul, make_copy, cu_trace, cu_right_mul_trace, p_matmul
 
 
 def combine_gates(gates: list) -> np.array:
@@ -240,8 +240,14 @@ class ProbabilitySimulator(CircuitSimulator):
         ops, state, cs = self.circuit_to_numpy(dtype=np.complex128)
 
         cs_size = len(self.circuit.classical_storage)
+        state_out, probs = self._run_numpy(ops, cs, state, cs_size)
+        self.cs_result = probs
+        return state_out, probs
+    
+    @staticmethod
+    def _run_numpy(ops: np.array, cs: np.array, state: np.array, cs_size: int):
         probs = np.zeros(cs_size, dtype=np.float64)
-        state_out = state
+        state_out = state.astype(np.complex64)
         for i in range(len(ops)):
             if cs[i] == -1:  # this is a gate
                 state_out = ops[i] @ state_out @ ops[i].conj().T
@@ -251,5 +257,25 @@ class ProbabilitySimulator(CircuitSimulator):
                 # TODO: Need to check whether this really works - I think we need to set the state measured to be zero/one, 
                 # but it seems to work for now
                 probs[cs[i]] = zero_prob
-        self.cs_result = probs
+                
+        return state_out, probs
+    
+    @staticmethod
+    @njit(parallel=True)
+    def _run(ops: np.array, cs: np.array, state: np.array, cs_size: int):
+        probs = np.zeros(cs_size, dtype=np.float64)
+        state_out = state.astype(np.complex64)
+        for i in range(len(ops)):
+            if cs[i] == -1:  # this is a gate
+                # state_out = ops[i] @ state_out @ ops[i].conj().T
+                state_out = p_matmul(state_out, ops[i].conj().T)
+                state_out = p_matmul(ops[i], state_out)
+            else:  # this is a measurement
+                X = p_matmul(state_out, ops[i])
+                # X = state_out @ ops[i]
+                zero_prob = float(max(np.trace(X).real, 0.0))
+                # TODO: Need to check whether this really works - I think we need to set the state measured to be zero/one, 
+                # but it seems to work for now
+                probs[cs[i]] = zero_prob
+                
         return state_out, probs

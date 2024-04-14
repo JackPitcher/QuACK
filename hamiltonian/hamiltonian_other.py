@@ -27,11 +27,11 @@ class SimpleQiskitHamiltonian(QiskitHamiltonian):
     def __init__(self):
         super().__init__(["XX", "YY", "ZZ"])
 
-    def construct_ansatz(self, theta: list|float, op: str|None=None) -> qk.QuantumCircuit:
+    def construct_ansatz(self, theta: list|float, op: str|None=None, num_qubits: int = 2, measure: bool = True) -> qk.QuantumCircuit:
         if not isinstance(theta, float):
             theta = theta[0]
         
-        qr = qk.QuantumRegister(2, "qr")
+        qr = qk.QuantumRegister(num_qubits, "qr")
         cr = qk.ClassicalRegister(1, "cr")
         qc = qk.QuantumCircuit(qr, cr)
 
@@ -48,7 +48,8 @@ class SimpleQiskitHamiltonian(QiskitHamiltonian):
             qc.cx(qr[0], qr[1])
 
             # Measure
-            qc.measure(qr[1], cr[0])
+            if measure:
+                qc.measure(qr[1], cr[0])
         elif op == "YY":
             # Change basis
             qc.sdg(qr[0])
@@ -60,13 +61,15 @@ class SimpleQiskitHamiltonian(QiskitHamiltonian):
             qc.cx(qr[0], qr[1])
 
             # Measure
-            qc.measure(qr[1], cr[0])
+            if measure:
+                qc.measure(qr[1], cr[0])
         elif op == "ZZ":
             # CNOT used to measure ZZ
             qc.cx(qr[0], qr[1])
 
             # Measure
-            qc.measure(qr[1], cr[0])
+            if measure:
+                qc.measure(qr[1], cr[0])
         elif op is not None:
             raise ValueError(f"Warning: Measurement on the {op} basis is not supported.")
         
@@ -103,11 +106,11 @@ class SimpleQutipHamiltonian(QutipHamiltonian):
     def __init__(self):
         super().__init__(["XX", "YY", "ZZ"])
 
-    def construct_ansatz(self, theta: list|float, op: str|None=None) -> dict:
+    def construct_ansatz(self, theta: list|float, op: str|None=None, num_qubits=2) -> dict:
         if not isinstance(theta, float):
             theta = theta[0]
 
-        qc = QubitCircuit(N=2, num_cbits=1)
+        qc = QubitCircuit(N=num_qubits, num_cbits=1)
         qc.add_gate("SNOT", targets=[0])
         qc.add_gate("CNOT", controls=0, targets=1)
         qc.add_gate("RX", targets=[0], arg_value=theta)

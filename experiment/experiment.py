@@ -5,6 +5,7 @@ from qutip.qip.circuit import QubitCircuit, Gate, CircuitSimulator
 from qutip import tensor, basis
 # Import Qiskit
 import qiskit as qk
+from qiskit.quantum_info import Statevector
 from qiskit_aer import Aer
 # Import QuACK
 from hamiltonian.hamiltonian import Hamiltonian
@@ -84,6 +85,37 @@ class QiskitExperiment(Experiment):
             counts[1] = temp['1']
         
         return counts
+    
+class ProbabilityQiskitExperiment(Experiment):
+    
+    num_qubits: int
+    
+    def __init__(self, hamiltonian: Hamiltonian, optimizer: Optimizer, num_qubits=2) -> None:
+        super().__init__(hamiltonian, optimizer, "qiskit")
+        self.num_qubits = num_qubits
+        
+    def _step(self, theta: list, verbose=False) -> float:
+        vqe_res = {}
+        for op in self.hamiltonian.get_ops():
+            qc = self.hamiltonian.construct_ansatz(theta=theta, op=op, num_qubits=self.num_qubits, measure=False)
+            backend = Aer.get_backend('statevector_simulator')
+
+            outputstate = backend.run(qc, shots=1).result().get_statevector()
+
+            probs = Statevector(outputstate).probabilities([1])           
+            vqe_res[op] = probs[0] - probs[1]
+    
+        energy = self.hamiltonian.get_energy(vqe_res)
+
+        return energy
+
+    def run(self, guess: np.array, verbose=False) -> list:
+        import time
+        start = time.perf_counter()
+        self.optimizer.set_theta(guess)
+        result = self.optimizer.run(verbose=verbose)
+        print(f"With {self.optimizer.params['Max Iterations']} iterations, {self.num_qubits} qubits, took {time.perf_counter() - start}s")
+        return result
 
 
 class QutipExperiment(Experiment):
@@ -100,6 +132,38 @@ class QutipExperiment(Experiment):
             counts[result.get_cbits(0)[0]] += 1
         
         return counts
+    
+class ProbabilityQutipExperiment(Experiment):
+    
+    num_qubits: int
+    
+    def __init__(self, hamiltonian: Hamiltonian, optimizer: Optimizer, num_qubits=2) -> None:
+        super().__init__(hamiltonian, optimizer, "qutip")
+        self.num_qubits = num_qubits
+        
+    def _step(self, theta: list, verbose=False) -> float:
+        vqe_res = {}
+        zero_state = tensor([basis(2, 0)] * self.num_qubits)
+        for op in self.hamiltonian.get_ops():
+            qc = self.hamiltonian.construct_ansatz(theta=theta, op=op, num_qubits=self.num_qubits)
+            result = qc.run_statistics(zero_state)
+            probs = result.get_probabilities()
+            if len(probs) > 1:  
+                vqe_res[op] = probs[0] - probs[1]
+            else:
+                vqe_res[op] = probs[0]
+    
+        energy = self.hamiltonian.get_energy(vqe_res)
+
+        return energy
+    
+    def run(self, guess: np.array, verbose=False) -> list:
+        import time
+        start = time.perf_counter()
+        self.optimizer.set_theta(guess)
+        result = self.optimizer.run(verbose=verbose)
+        print(f"With {self.optimizer.params['Max Iterations']} iterations, {self.num_qubits} qubits, took {time.perf_counter() - start}s")
+        return result
     
 
 class QuackExperiment(Experiment):
@@ -145,14 +209,16 @@ class QuackExperiment(Experiment):
 class ProbabilityQuackExperiment(Experiment):
     def __init__(self, hamiltonian: Hamiltonian,
                  optimizer: Optimizer,
-                 simulator: callable) -> None:
+                 simulator: callable,
+                 num_qubits: int = 2) -> None:
         super().__init__(hamiltonian, optimizer, "quack")
         self.simulator = simulator
+        self.num_qubits = num_qubits
 
     def _step(self, theta: list, verbose=False) -> float:
         vqe_res = {}
         for op in self.hamiltonian.get_ops():
-            qc = self.hamiltonian.construct_ansatz(theta=theta, op=op)
+            qc = self.hamiltonian.construct_ansatz(theta=theta, op=op, N=self.num_qubits)
             sim = self.simulator(qc, 1, "")
             sim.run()
             zero_prob = sim.cs_result[0]            
@@ -167,5 +233,5 @@ class ProbabilityQuackExperiment(Experiment):
         start = time.perf_counter()
         self.optimizer.set_theta(guess)
         result = self.optimizer.run(verbose=verbose)
-        print(f"With {self.optimizer.params["Max Iterations"]} iterations, took {time.perf_counter() - start}s")
+        print(f"With {self.optimizer.params['Max Iterations']} iterations, {self.num_qubits} qubits, took {time.perf_counter() - start}s")
         return result

@@ -1,5 +1,5 @@
 import numpy as np
-from experiment.experiment import QuackExperiment, ProbabilityQuackExperiment, QiskitExperiment, QutipExperiment
+from experiment.experiment import QuackExperiment, ProbabilityQuackExperiment, QiskitExperiment, QutipExperiment, ProbabilityQutipExperiment, ProbabilityQiskitExperiment
 from optimizer.optimizer import GradientDescent, Adam
 from hamiltonian.hamiltonian import SimpleQuackHamiltonian
 from hamiltonian.hamiltonian_other import SimpleQiskitHamiltonian, SimpleQutipHamiltonian
@@ -7,7 +7,8 @@ from circuit_simulator.CircuitSimulator import NumbaSimulator, CUDASimulator, Pr
 import time
 from tqdm import tqdm
 
-module = 'prob'
+module = 'prob_qutip'
+
 if module == "quack":
     opt_method = "adam"
     sim_method = "cpu"
@@ -28,9 +29,23 @@ if module == "quack":
 elif module == "prob":
     hamiltonian = SimpleQuackHamiltonian()
     optimizer = Adam()
-    #optimizer.set_param("Max Iterations", 1e4)
+    optimizer.set_param("Max Iterations", 1e3)
     simulator = ProbabilitySimulator
-    experiment = ProbabilityQuackExperiment(hamiltonian, optimizer, simulator)
+    experiment = ProbabilityQuackExperiment(hamiltonian, optimizer, simulator, num_qubits=2)
+    res = experiment.run([3.1], verbose=False)
+    print(f"Result: {res[0]}, Diff={abs(res[0] - np.pi)}")
+elif module == "prob_qiskit":
+    hamiltonian = SimpleQiskitHamiltonian()
+    optimizer = Adam()
+    optimizer.set_param("Max Iterations", 1e3)
+    experiment = ProbabilityQiskitExperiment(hamiltonian=hamiltonian, optimizer=optimizer, num_qubits=2)
+    res = experiment.run([3.1], verbose=False)
+    print(f"Result: {res[0]}, Diff={abs(res[0] - np.pi)}")
+elif module == "prob_qutip":
+    hamiltonian = SimpleQutipHamiltonian()
+    optimizer = Adam()
+    optimizer.set_param("Max Iterations", 1e3)
+    experiment = ProbabilityQutipExperiment(hamiltonian=hamiltonian, optimizer=optimizer, num_qubits=2)
     res = experiment.run([3.1], verbose=False)
     print(f"Result: {res[0]}, Diff={abs(res[0] - np.pi)}")
 elif module == 'qutip':
