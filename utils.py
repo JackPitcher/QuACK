@@ -41,6 +41,29 @@ def p_matmul(A: np.array, B: np.array) -> np.array:
     return C
 
 
+def generate_matmul(size: int) -> callable:
+    def impl(a, b):
+        c = np.zeros((size, size))
+        for k in prange(size):
+            for i in prange(size):
+                for j in prange(size):
+                    c[i, j] += a[i, k] * b[k, j]
+        return c
+    return njit(impl, parallel=True)
+
+
+def generate_cache_matmul(size: int) -> callable:
+    b = size
+    def impl(a, b):
+        c = np.zeros((size, size))
+        for i in prange(size):
+            for k in prange(size):
+                for j in prange(size):
+                    c[i, j] += a[k, i] * b[i, j]
+        return c
+    return njit(impl, parallel=True)
+
+
 @njit
 def numba_tensor(lst: np.array) -> np.array:
     ret_val = lst[0]
@@ -83,7 +106,45 @@ def cu_conj_T(A: np.array, B: np.array) -> None:
         B[i, j] = A[j, i] - 2j * A[j, i].imag
 
 
-TPB = 8
+TPB = 4
+@cuda.jit
+def cu_matmul(A: np.array, B: np.array, C: np.array) -> None:
+    # Define an array in the shared memory
+    # The size and type of the arrays must be known at compile time
+    sA = cuda.shared.array(shape=(TPB, TPB), dtype=complex64)
+    sB = cuda.shared.array(shape=(TPB, TPB), dtype=complex64)
+
+    x, y = cuda.grid(2)
+
+    tx = cuda.threadIdx.x
+    ty = cuda.threadIdx.y
+    bpg = cuda.gridDim.x    # blocks per grid
+
+    # Each thread computes one element in the result matrix.
+    # The dot product is chunked into dot products of TPB-long vectors.
+    tmp = complex64(0.)
+    for i in range(bpg):
+        # Preload data into shared memory
+        sA[tx, ty] = 0
+        sB[tx, ty] = 0
+        if x < A.shape[0] and (ty+i*TPB) < A.shape[1]:
+          sA[tx, ty] = A[x, ty + i * TPB]
+        if y < B.shape[1] and (tx+i*TPB) < B.shape[0]:
+          sB[tx, ty] = B[tx + i * TPB, y]
+
+        # Wait until all threads finish preloading
+        cuda.syncthreads()
+
+        # Computes partial product on the shared memory
+        for j in range(TPB):
+            tmp += sA[tx, j] * sB[j, ty]
+
+        # Wait until all threads finish computing
+        cuda.syncthreads()
+    if x < C.shape[0] and y < C.shape[1]:
+        C[x, y] = tmp
+
+
 @cuda.jit
 def cu_left_mul(A: np.array, B: np.array, C: np.array) -> None:
     """
