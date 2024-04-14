@@ -1,13 +1,13 @@
 import numpy as np
-from experiment.experiment import QuackExperiment, QiskitExperiment, QutipExperiment
+from experiment.experiment import QuackExperiment, ProbabilityQuackExperiment, QiskitExperiment, QutipExperiment
 from optimizer.optimizer import GradientDescent, Adam
 from hamiltonian.hamiltonian import SimpleQuackHamiltonian
 from hamiltonian.hamiltonian_other import SimpleQiskitHamiltonian, SimpleQutipHamiltonian
-from circuit_simulator.CircuitSimulator import NumbaSimulator, CUDASimulator
+from circuit_simulator.CircuitSimulator import NumbaSimulator, CUDASimulator, ProbabilitySimulator
 import time
 from tqdm import tqdm
 
-module = 'quack'
+module = 'prob'
 if module == "quack":
     opt_method = "adam"
     sim_method = "cpu"
@@ -22,9 +22,17 @@ if module == "quack":
         experiment = QuackExperiment(hamiltonian, optimizer, CUDASimulator)
     elif sim_method == 'cpu':
         experiment = QuackExperiment(hamiltonian, optimizer, NumbaSimulator)
-    experiment.set_param("shots", 128)
+    experiment.set_param("shots", 1e6)
     res = experiment.run([3.1], verbose=True)
     print(f"Result: {res}")
+elif module == "prob":
+    hamiltonian = SimpleQuackHamiltonian()
+    optimizer = Adam()
+    #optimizer.set_param("Max Iterations", 1e4)
+    simulator = ProbabilitySimulator
+    experiment = ProbabilityQuackExperiment(hamiltonian, optimizer, simulator)
+    res = experiment.run([3.1], verbose=False)
+    print(f"Result: {res[0]}, Diff={abs(res[0] - np.pi)}")
 elif module == 'qutip':
     hamiltonian = SimpleQutipHamiltonian()
     schedule = [[128, 256, 512], [0.1, 0.05, 0.01]]

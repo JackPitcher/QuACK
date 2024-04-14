@@ -140,3 +140,32 @@ class QuackExperiment(Experiment):
         energy = self.hamiltonian.get_energy(vqe_res)
 
         return energy
+    
+
+class ProbabilityQuackExperiment(Experiment):
+    def __init__(self, hamiltonian: Hamiltonian,
+                 optimizer: Optimizer,
+                 simulator: callable) -> None:
+        super().__init__(hamiltonian, optimizer, "quack")
+        self.simulator = simulator
+
+    def _step(self, theta: list, verbose=False) -> float:
+        vqe_res = {}
+        for op in self.hamiltonian.get_ops():
+            qc = self.hamiltonian.construct_ansatz(theta=theta, op=op)
+            sim = self.simulator(qc, 1, "")
+            sim.run()
+            zero_prob = sim.cs_result[0]            
+            vqe_res[op] = 2.*zero_prob - 1
+    
+        energy = self.hamiltonian.get_energy(vqe_res)
+
+        return energy
+
+    def run(self, guess: np.array, verbose=False) -> list:
+        import time
+        start = time.perf_counter()
+        self.optimizer.set_theta(guess)
+        result = self.optimizer.run(verbose=verbose)
+        print(f"With {self.optimizer.params["Max Iterations"]} iterations, took {time.perf_counter() - start}s")
+        return result

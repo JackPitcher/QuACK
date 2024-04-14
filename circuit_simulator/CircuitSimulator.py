@@ -46,7 +46,7 @@ class CircuitSimulator:
         self.state_result = None
         self.cs_result = None
 
-    def circuit_to_numpy(self):
+    def circuit_to_numpy(self, dtype=np.complex64):
         """
         Converts self.circuit to a list of numpy arrays
         to be used in Numba and Numba CUDA kernels.
@@ -71,7 +71,7 @@ class CircuitSimulator:
                 ops.append(self.circuit.reg.get_zero_projector(op.target, self.circuit.reg.num_qubits))
                 classical_store.append(op.classical_store)
         
-        return np.array(ops, dtype=np.complex64), state, np.array(classical_store, dtype=np.int8)
+        return np.array(ops, dtype=dtype), state, np.array(classical_store, dtype=np.int8)
     
     def compute_measurements(self, probs: np.array):
         """
@@ -233,3 +233,23 @@ class CUDASimulator(CircuitSimulator):
         self.state_result = state_out
         self.cs_result = compute_measurements(cs_out)
         return state_out, cs_out
+
+
+class ProbabilitySimulator(CircuitSimulator):
+    def run(self):
+        ops, state, cs = self.circuit_to_numpy(dtype=np.complex128)
+
+        cs_size = len(self.circuit.classical_storage)
+        probs = np.zeros(cs_size, dtype=np.float64)
+        state_out = state
+        for i in range(len(ops)):
+            if cs[i] == -1:  # this is a gate
+                state_out = ops[i] @ state_out @ ops[i].conj().T
+            else:  # this is a measurement
+                X = state_out @ ops[i]
+                zero_prob = float(max(np.trace(X).real, 0.0))
+                # TODO: Need to check whether this really works - I think we need to set the state measured to be zero/one, 
+                # but it seems to work for now
+                probs[cs[i]] = zero_prob
+        self.cs_result = probs
+        return state_out, probs
