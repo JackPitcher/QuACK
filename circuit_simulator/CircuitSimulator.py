@@ -2,7 +2,7 @@ from circuit import QuantumCircuit, MeasurementOp, GateOp
 from numba import njit, cuda, prange
 import numpy as np
 import math
-from utils import numba_matmul, cu_left_mul, cu_right_mul, make_copy, cu_trace, cu_right_mul_trace, p_matmul
+from utils import numba_matmul, cu_left_mul, cu_right_mul, make_copy, cu_right_mul_trace, p_matmul, cu_matmul, cu_conj_T, cu_T
 
 
 def combine_gates(gates: list) -> np.array:
@@ -204,7 +204,7 @@ class CUDASimulator(CircuitSimulator):
 
         # Setup CUDA kernel information for trace
         trace_output = np.zeros(self.shots, dtype=np.complex64)
-        trace_threadsperblock = 32
+        trace_threadsperblock = 64
         trace_bpg_x = math.ceil(state_out.shape[0] / trace_threadsperblock)
         trace_blockspergrid = trace_bpg_x
 
@@ -216,18 +216,18 @@ class CUDASimulator(CircuitSimulator):
         state_out_d = cuda.to_device(state_out)
         output_tensor_d = cuda.to_device(output_tensor)
         trace_output_d = cuda.to_device(trace_output)
+        ops = cuda.to_device(ops)
+        op_T = cuda.to_device(np.zeros_like(ops[0]))
         # Run circuit
         for i in range(len(ops)):
             if cs[i] == -1:  # this is a gate
-                left_op = cuda.to_device(ops[i])
-                right_op = cuda.to_device(ops[i].conj().T)
-                cu_left_mul[blockspergrid, threadsperblock](left_op, state_out_d, output_tensor_d)
-                make_copy[blockspergrid, threadsperblock](output_tensor_d, state_out_d)
-                cu_right_mul[blockspergrid, threadsperblock](right_op, state_out_d, output_tensor_d)
-                make_copy[blockspergrid, threadsperblock](output_tensor_d, state_out_d)
+                op = ops[i]
+                cu_left_mul[blockspergrid, threadsperblock](op, state_out_d, output_tensor_d)
+                cu_conj_T[blockspergrid, threadsperblock](op, op_T)
+                cu_right_mul[blockspergrid, threadsperblock](op_T, output_tensor_d, state_out_d)
             else:  # this is a measurement
-                op = cuda.to_device(ops[i].T)
-                cu_right_mul_trace[trace_blockspergrid, trace_threadsperblock](op, state_out_d, trace_output_d)
+                cu_T[blockspergrid, threadsperblock](ops[i], op_T)
+                cu_right_mul_trace[trace_blockspergrid, trace_threadsperblock](op_T, state_out_d, trace_output_d)
                 X = trace_output_d.copy_to_host()
                 sample_shots(X, cs[i], cs_out)
         self.state_result = state_out
@@ -236,11 +236,34 @@ class CUDASimulator(CircuitSimulator):
 
 
 class ProbabilitySimulator(CircuitSimulator):
+    """
+    Simulator that outputs probabilities.
+
+    === Attributes ===
+    - method: str indicating which matmul method to use. Can be:
+        - numpy: standard @ matmul
+        - numba: naive njit matmul
+        - parallel: naive njit parallel
+        - cuda: gpu enabled
+    """
+    method: str
+
+    def __init__(self, circuit: QuantumCircuit, shots: int, device: str, method: str) -> None:
+        super().__init__(circuit, shots, device)
+        self.method = method
+
     def run(self):
         ops, state, cs = self.circuit_to_numpy(dtype=np.complex128)
 
         cs_size = len(self.circuit.classical_storage)
-        state_out, probs = self._run_numpy(ops, cs, state, cs_size)
+        if self.method == "numpy":
+            state_out, probs = self._run_numpy(ops, cs, state, cs_size)
+        elif self.method == "numba":
+            state_out, probs = self._run_numba(ops, cs, state, cs_size)
+        elif self.method == "parallel":
+            state_out, probs = self._run_numba_parallel(ops, cs, state, cs_size)
+        elif self.method == "cuda":
+            state_out, probs = self._run_cuda(ops, cs, state, cs_size)
         self.cs_result = probs
         return state_out, probs
     
@@ -261,8 +284,28 @@ class ProbabilitySimulator(CircuitSimulator):
         return state_out, probs
     
     @staticmethod
+    @njit
+    def _run_numba(ops: np.array, cs: np.array, state: np.array, cs_size: int):
+        probs = np.zeros(cs_size, dtype=np.float64)
+        state_out = state.astype(np.complex64)
+        for i in range(len(ops)):
+            if cs[i] == -1:  # this is a gate
+                # state_out = ops[i] @ state_out @ ops[i].conj().T
+                state_out = numba_matmul(state_out, ops[i].conj().T)
+                state_out = numba_matmul(ops[i], state_out)
+            else:  # this is a measurement
+                X = numba_matmul(state_out, ops[i])
+                # X = state_out @ ops[i]
+                zero_prob = float(max(np.trace(X).real, 0.0))
+                # TODO: Need to check whether this really works - I think we need to set the state measured to be zero/one, 
+                # but it seems to work for now
+                probs[cs[i]] = zero_prob
+                
+        return state_out, probs
+
+    @staticmethod
     @njit(parallel=True)
-    def _run(ops: np.array, cs: np.array, state: np.array, cs_size: int):
+    def _run_numba_parallel(ops: np.array, cs: np.array, state: np.array, cs_size: int):
         probs = np.zeros(cs_size, dtype=np.float64)
         state_out = state.astype(np.complex64)
         for i in range(len(ops)):
@@ -272,6 +315,39 @@ class ProbabilitySimulator(CircuitSimulator):
                 state_out = p_matmul(ops[i], state_out)
             else:  # this is a measurement
                 X = p_matmul(state_out, ops[i])
+                # X = state_out @ ops[i]
+                zero_prob = float(max(np.trace(X).real, 0.0))
+                # TODO: Need to check whether this really works - I think we need to set the state measured to be zero/one, 
+                # but it seems to work for now
+                probs[cs[i]] = zero_prob
+                
+        return state_out, probs
+    
+    @staticmethod
+    def _run_cuda(ops: np.array, cs: np.array, state: np.array, cs_size: int):
+        probs = np.zeros(cs_size, dtype=np.float64)
+        state_out = state.astype(np.complex64)
+        tmp_out = np.empty_like(state_out)
+
+        threadsperblock = (16, 16)
+        bpg_x = math.ceil(state_out.shape[0] / threadsperblock[0])
+        bpg_y = math.ceil(state_out.shape[1] / threadsperblock[1])
+        blockspergrid = (bpg_x, bpg_y)
+
+        state_out = cuda.to_device(state_out)
+        tmp_out = cuda.to_device(tmp_out)
+        ops = cuda.to_device(ops)
+        op_conj_T = cuda.to_device(np.zeros_like(ops[0]))
+
+        for i in range(len(ops)):
+            if cs[i] == -1:  # this is a gate
+                # state_out = ops[i] @ state_out @ ops[i].conj().T
+                cu_conj_T[blockspergrid, threadsperblock](ops[i], op_conj_T)
+                cu_matmul[blockspergrid, threadsperblock](ops[i], state_out, tmp_out)
+                cu_matmul[blockspergrid, threadsperblock](tmp_out, op_conj_T, state_out)
+            else:  # this is a measurement
+                cu_matmul[blockspergrid, threadsperblock](state_out, ops[i], tmp_out)
+                X = tmp_out.copy_to_host()
                 # X = state_out @ ops[i]
                 zero_prob = float(max(np.trace(X).real, 0.0))
                 # TODO: Need to check whether this really works - I think we need to set the state measured to be zero/one, 

@@ -106,9 +106,22 @@ def cu_conj_T(A: np.array, B: np.array) -> None:
         B[i, j] = A[j, i] - 2j * A[j, i].imag
 
 
+@cuda.jit
+def cu_T(A: np.array, B: np.array) -> None:
+    i, j = cuda.grid(2)
+    if i < A.shape[0] and j < A.shape[1]:
+        B[i, j] = A[j, i]
+
+
 TPB = 4
 @cuda.jit
 def cu_matmul(A: np.array, B: np.array, C: np.array) -> None:
+    """
+    Computes C = A @ B. 
+
+    Code from the Numba documentation,
+    https://numba.readthedocs.io/en/stable/cuda/examples.html#matrix-multiplication
+    """
     # Define an array in the shared memory
     # The size and type of the arrays must be known at compile time
     sA = cuda.shared.array(shape=(TPB, TPB), dtype=complex64)
@@ -145,17 +158,20 @@ def cu_matmul(A: np.array, B: np.array, C: np.array) -> None:
         C[x, y] = tmp
 
 
+SPB = 8
+TPB = 16
 @cuda.jit
 def cu_left_mul(A: np.array, B: np.array, C: np.array) -> None:
     """
     Computes A @ B[i] for each i in B.
+    Adapted from cu_matmul.
 
     === Prerequisites ===
     - len(B.shape) == 3
     - A.shape == B.shape[1:]
     """
     sA = cuda.shared.array(shape=(TPB, TPB), dtype=complex64)
-    sB = cuda.shared.array(shape=(TPB, TPB, TPB), dtype=complex64)
+    sB = cuda.shared.array(shape=(SPB, TPB, TPB), dtype=complex64)
 
     x, y, z = cuda.grid(3)   
     tx = cuda.threadIdx.x
@@ -195,7 +211,7 @@ def cu_right_mul(A: np.array, B: np.array, C: np.array) -> None:
     - A.shape == B.shape[1:]
     """
     sA = cuda.shared.array(shape=(TPB, TPB), dtype=complex64)
-    sB = cuda.shared.array(shape=(TPB, TPB, TPB), dtype=complex64)
+    sB = cuda.shared.array(shape=(SPB, TPB, TPB), dtype=complex64)
 
     x, y, z = cuda.grid(3)   
     tx = cuda.threadIdx.x
